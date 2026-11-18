@@ -1,9 +1,11 @@
 import json
 import math
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 import numpy as np
-import openpyxl
 
-WORKBOOKS = {}       # filename -> {"sheets": [...], "sheet_meta": {...}, "raw_rows": {...}}
+WORKBOOKS = {}       # filename -> {"sheets": [...], "raw_rows": {...}, "detected_type": ...}
 IO_TABLES = {}       # level -> parsed dict
 CLASSIFICATION = {   # parsed from (표)상품분류.xlsx
     "loaded": False,
@@ -33,6 +35,161 @@ FD_CODE_NAMES = {
     "9132": "귀중품순취득",
     "9140": "수출"
 }
+
+
+def col_letters_to_idx(letters):
+    idx = 0
+    for ch in letters:
+        idx = idx * 26 + (ord(ch.upper()) - ord("A") + 1)
+    return idx - 1
+
+
+def read_xlsx_sheets(path):
+    """외부 라이브러리(openpyxl) 없이 파이썬 표준 라이브러리로 .xlsx 모든 시트를 읽음"""
+    sheets_ordered = []
+    sheets_data = {}
+    with zipfile.ZipFile(path, "r") as zf:
+        names = set(zf.namelist())
+
+        shared_strings = []
+        if "xl/sharedStrings.xml" in names:
+            with zf.open("xl/sharedStrings.xml") as f:
+                root = ET.parse(f).getroot()
+                for si in root:
+                    parts = []
+                    for child in si:
+                        ctag = child.tag
+                        if ctag.endswith("}t") or ctag == "t":
+                            if child.text:
+                                parts.append(child.text)
+                        elif ctag.endswith("}r") or ctag == "r":
+                            for sub in child:
+                                if (sub.tag.endswith("}t") or sub.tag == "t") and sub.text:
+                                    parts.append(sub.text)
+                    shared_strings.append("".join(parts))
+
+        rid_to_target = {}
+        if "xl/_rels/workbook.xml.rels" in names:
+            with zf.open("xl/_rels/workbook.xml.rels") as f:
+                rel_root = ET.parse(f).getroot()
+                for rel in rel_root:
+                    rid = rel.attrib.get("Id", "")
+                    target = rel.attrib.get("Target", "")
+                    if target.startswith("/"):
+                        target = target.lstrip("/")
+                    elif not target.startswith("xl/"):
+                        target = "xl/" + target
+                    rid_to_target[rid] = target
+
+        if "xl/workbook.xml" in names:
+            with zf.open("xl/workbook.xml") as f:
+                wb_root = ET.parse(f).getroot()
+                for elem in wb_root.iter():
+                    if elem.tag.endswith("}sheet") or elem.tag == "sheet":
+                        sname = elem.attrib.get("name", "")
+                        rid = None
+                        for k, v in elem.attrib.items():
+                            if k.endswith("}id") or k == "r:id":
+                                rid = v
+                                break
+                        target = rid_to_target.get(rid, "")
+                        if sname and target in names:
+                            sheets_ordered.append((sname, target))
+
+        if not sheets_ordered:
+            ws_files = sorted(n for n in names if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+            sheets_ordered = [(f"Sheet{i+1}", p) for i, p in enumerate(ws_files)]
+
+        cell_ref_re = re.compile(r"^([A-Za-z]+)(\d+)$")
+        for sname, target in sheets_ordered:
+            row_dicts = {}
+            max_col = -1
+            max_row = -1
+            with zf.open(target) as f:
+                cur_row_idx = -1
+                cur_col_idx = -1
+                for event, elem in ET.iterparse(f, events=("start", "end")):
+                    tag = elem.tag
+                    if event == "start":
+                        if tag.endswith("}row") or tag == "row":
+                            r_attr = elem.attrib.get("r")
+                            cur_row_idx = (int(r_attr) - 1) if r_attr else (cur_row_idx + 1)
+                            cur_col_idx = -1
+                    else:
+                        if tag.endswith("}c") or tag == "c":
+                            ref = elem.attrib.get("r", "")
+                            ctype = elem.attrib.get("t", "")
+                            if ref:
+                                m = cell_ref_re.match(ref)
+                                if m:
+                                    c_idx = col_letters_to_idx(m.group(1))
+                                    r_idx = int(m.group(2)) - 1
+                                else:
+                                    cur_col_idx += 1
+                                    c_idx = cur_col_idx
+                                    r_idx = cur_row_idx
+                            else:
+                                cur_col_idx += 1
+                                c_idx = cur_col_idx
+                                r_idx = cur_row_idx
+
+                            val = None
+                            v_text = None
+                            is_texts = []
+                            for child in elem:
+                                ctag = child.tag
+                                if ctag.endswith("}v") or ctag == "v":
+                                    v_text = child.text
+                                elif ctag.endswith("}is") or ctag == "is":
+                                    for sub in child.iter():
+                                        if (sub.tag.endswith("}t") or sub.tag == "t") and sub.text:
+                                            is_texts.append(sub.text)
+
+                            if ctype == "s" and v_text is not None:
+                                si_idx = int(v_text)
+                                val = shared_strings[si_idx] if 0 <= si_idx < len(shared_strings) else ""
+                            elif ctype == "inlineStr":
+                                val = "".join(is_texts)
+                            elif ctype == "str":
+                                val = v_text if v_text is not None else ""
+                            elif ctype == "b":
+                                val = (v_text == "1")
+                            elif ctype == "e":
+                                val = ""
+                            else:
+                                if v_text is not None and v_text != "":
+                                    try:
+                                        val = float(v_text)
+                                    except ValueError:
+                                        val = v_text
+
+                            if val is not None and r_idx >= 0 and c_idx >= 0:
+                                if r_idx not in row_dicts:
+                                    row_dicts[r_idx] = {}
+                                row_dicts[r_idx][c_idx] = val
+                                if r_idx > max_row:
+                                    max_row = r_idx
+                                if c_idx > max_col:
+                                    max_col = c_idx
+                            elem.clear()
+                        elif tag.endswith("}row") or tag == "row":
+                            elem.clear()
+
+            rows = []
+            if max_row >= 0 and max_col >= 0:
+                width = max_col + 1
+                for r_i in range(max_row + 1):
+                    r_d = row_dicts.get(r_i)
+                    if not r_d:
+                        rows.append(())
+                    else:
+                        row_list = [None] * width
+                        for c_i, v in r_d.items():
+                            row_list[c_i] = v
+                        rows.append(tuple(row_list))
+            sheets_data[sname] = rows
+
+    return [s[0] for s in sheets_ordered], sheets_data
 
 
 def clean_str(v):
@@ -180,7 +337,6 @@ def try_parse_io_table(filename, sheet_name, rows):
     in_va = False
     for r in rows[code_row_idx + 2:]:
         r_code = clean_str(r[0]) if len(r) > 0 else ""
-        r_name = clean_str(r[1]) if len(r) > 1 else ""
         if not r_code:
             continue
         if r_code in NON_SECTOR_ROW_CODES:
@@ -238,8 +394,7 @@ def try_parse_io_table(filename, sheet_name, rows):
 
 
 def load_excel_file(filename, path):
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    sheet_names = wb.sheetnames
+    sheet_names, sheets_data = read_xlsx_sheets(path)
     wb_info = {
         "sheets": sheet_names,
         "raw_rows": {},
@@ -248,28 +403,23 @@ def load_excel_file(filename, path):
 
     parsed_level = None
     for sname in sheet_names:
-        ws = wb[sname]
-        rows = [tuple(r) for r in ws.iter_rows(values_only=True)]
+        rows = sheets_data.get(sname, [])
         wb_info["raw_rows"][sname] = rows
 
-        # 1) 상품분류 시트 판별
         if not CLASSIFICATION["loaded"] and ("상품분류" in filename or any("기본부문" in clean_str(c) for r in rows[:5] for c in r[:8])):
             if try_parse_classification(rows):
                 wb_info["detected_type"] = "classification"
 
-        # 2) 투입산출표 시트 판별
         io_parsed = try_parse_io_table(filename, sname, rows)
         if io_parsed is not None:
             lvl = io_parsed["level"]
             IO_TABLES[lvl] = io_parsed
             parsed_level = lvl
             wb_info["detected_type"] = f"io_{lvl}"
-            # 캐시 무효화
             for k in list(LEONTIEF_CACHE.keys()):
                 if k[0] == lvl:
                     del LEONTIEF_CACHE[k]
 
-    wb.close()
     WORKBOOKS[filename] = wb_info
     return json_dumps_safe({
         "filename": filename,
@@ -316,7 +466,6 @@ def get_sheet_preview(arg_json):
     total_rows = len(rows)
     max_cols = max((len(r) for r in rows[:20]), default=0)
 
-    # 너무 넓은 열(380부문 등)은 앞 25개 열 위주로 보여주고 검색 시 매칭 열 정보 포함
     display_cols = min(max_cols, 18)
     filtered = []
     for idx, r in enumerate(rows):
@@ -388,10 +537,8 @@ def compute_leontief(level, model_type="domestic_est"):
     VA = t["va_rows"].get("9690", np.zeros(n))
     Comp = t["va_rows"].get("9610", np.zeros(n))
 
-    # 기술투입계수 행렬 A (총산출 0인 부문은 열 전체 0 처리)
     A = np.divide(Z, X[None, :], out=np.zeros_like(Z), where=X[None, :] > 0)
 
-    # 국내수요 대비 수입비율 m_i = M_i / (총수요_i - 수출_i)
     dom_demand = TotalD - E
     m = np.divide(M, dom_demand, out=np.zeros(n), where=dom_demand > 0)
     m = np.clip(m, 0.0, 1.0)
@@ -406,16 +553,14 @@ def compute_leontief(level, model_type="domestic_est"):
     I = np.eye(n, dtype=np.float64)
     L = np.linalg.solve(I - Ad, I)
 
-    # 부가가치율 및 피용자보수율
     v = np.divide(VA, X, out=np.zeros(n), where=X > 0)
     w = np.divide(Comp, X, out=np.zeros(n), where=X > 0)
 
-    prod_mult = L.sum(axis=0)                  # 생산유발계수 (열합)
-    va_mult = (v[:, None] * L).sum(axis=0)     # 부가가치유발계수
-    wage_mult = (w[:, None] * L).sum(axis=0)   # 피용자보수유발계수
-    imp_mult = (Am @ L).sum(axis=0)            # 간접 수입유발계수 (국내생산 1단위당 유발 수입)
+    prod_mult = L.sum(axis=0)
+    va_mult = (v[:, None] * L).sum(axis=0)
+    wage_mult = (w[:, None] * L).sum(axis=0)
+    imp_mult = (Am @ L).sum(axis=0)
 
-    # 영향력계수(후방연쇄) 및 감응도계수(전방연쇄)
     col_sums = L.sum(axis=0)
     row_sums = L.sum(axis=1)
     mean_all = float(col_sums.mean()) if n > 0 else 1.0
@@ -449,7 +594,6 @@ def get_structure_analysis(arg_json):
     X = t["supply_cols"]["9310"]
     M = t["supply_cols"]["9329"]
     TotalS = t["supply_cols"]["9390"]
-    IntD = t["supply_cols"]["9090"]
     FD = t["fd_cols"]["9190"]
     E = t["fd_cols"]["9140"]
     VA = t["va_rows"].get("9690", np.zeros(n))
@@ -463,7 +607,6 @@ def get_structure_analysis(arg_json):
     sum_E = float(E.sum())
     sum_FD = float(FD.sum())
 
-    # 최종수요 및 부가가치 항목별 합계
     fd_breakdown = []
     for c in ["9111", "9112", "9121", "9122", "9131", "9132", "9140"]:
         val = float(t["fd_cols"][c].sum())
@@ -541,10 +684,7 @@ def get_sector_detail(arg_json):
 
     t = IO_TABLES[level]
     idx_list = [i for i, s in enumerate(t["sectors"]) if s["code"] == code]
-    if not idx_list:
-        idx = 0
-    else:
-        idx = idx_list[0]
+    idx = idx_list[0] if idx_list else 0
 
     sec = t["sectors"][idx]
     Z = t["Z"]
@@ -557,7 +697,6 @@ def get_sector_detail(arg_json):
     va_j = float(VA[idx])
     ii_j = float(IntIn[idx])
 
-    # 후방 투입구조 Top 10 (j열)
     col_vals = Z[:, idx]
     up_order = np.argsort(-col_vals)
     upstream = []
@@ -573,7 +712,6 @@ def get_sector_detail(arg_json):
             "share": safe_num(val / ii_j * 100 if ii_j else 0.0, 2)
         })
 
-    # 전방 배분구조 Top 10 (i행)
     row_vals = Z[idx, :]
     down_order = np.argsort(-row_vals)
     downstream = []
@@ -589,7 +727,6 @@ def get_sector_detail(arg_json):
             "share": safe_num(val / x_j * 100 if x_j > 0 else 0.0, 2)
         })
 
-    # 생산유발 파급 Top 10 (L[:, idx])
     l_col = leo["L"][:, idx]
     l_sum = float(l_col.sum())
     l_order = np.argsort(-l_col)
@@ -605,7 +742,6 @@ def get_sector_detail(arg_json):
             "share": safe_num(val / l_sum * 100 if l_sum else 0.0, 2)
         })
 
-    # 4분면 산점도 데이터 (전체 부문)
     scatter = []
     for i, s in enumerate(t["sectors"]):
         scatter.append({
@@ -639,7 +775,7 @@ def run_simulation(arg_json):
     req = json.loads(arg_json)
     level = req.get("level", "")
     model_type = req.get("model_type", "domestic_est")
-    shocks = req.get("shocks", [])  # [{code, amount}]
+    shocks = req.get("shocks", [])
 
     if level not in IO_TABLES:
         return json_dumps_safe({"error": "분류표가 로드되지 않았습니다."})
@@ -660,7 +796,7 @@ def run_simulation(arg_json):
     dX_indirect = dX - dY
     dV = leo["v"] * dX
     dW = leo["w"] * dX
-    dM = (leo["Am"] @ dX)  # 중간재 유발 수입액
+    dM = (leo["Am"] @ dX)
 
     total_dy = float(dY.sum())
     total_dx = float(dX.sum())
@@ -708,7 +844,6 @@ def verify_all_levels():
         sum_out = float(t["supply_cols"]["9310"].sum())
         sum_in = float(t["va_rows"].get("9790", np.zeros(t["n"])).sum())
         sum_sup = float(t["supply_cols"]["9390"].sum())
-        sum_dem = float(t["supply_cols"]["9290"].sum())
         sum_va = float(t["va_rows"].get("9690", np.zeros(t["n"])).sum())
 
         max_diff_io = float(np.max(np.abs(t["supply_cols"]["9310"] - t["va_rows"].get("9790", np.zeros(t["n"])))))
@@ -740,7 +875,6 @@ def get_drilldown(arg_json):
     if target_level not in IO_TABLES:
         return json_dumps_safe({"error": f"{LEVEL_LABELS.get(target_level, target_level)} 파일이 로드되지 않았습니다."})
 
-    # 대분류에 속한 대상 분류 코드 집합 추출
     field_map = {"mid83": "major_code", "minor165": "minor_code", "basic380": "basic_code"}
     target_field = field_map.get(target_level)
     if not target_field:
