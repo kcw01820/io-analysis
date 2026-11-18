@@ -71,7 +71,6 @@ body {
   background: rgba(255, 255, 255, 0.16);
   font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
 }
 
 .brand-title {
@@ -104,52 +103,49 @@ body {
 }
 .btn-ghost-light:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
 
-/* 시작 화면 (심플 중앙 배치) */
+/* 시작 화면: 박스 없이 순백 배경 + 은은한 블루 도트 & 광원 */
 .landing-wrap {
   min-height: calc(100vh - 56px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(29, 78, 216, 0.08), transparent 55%),
-    var(--bg);
+  padding: 40px 24px;
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% 15%, rgba(29, 78, 216, 0.07), transparent 70%),
+    radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px;
 }
 
-.landing-box {
+.landing-content {
   width: 100%;
-  max-width: 560px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 48px 40px;
+  max-width: 620px;
   text-align: center;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
 }
 
 .landing-tag {
   display: inline-block;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
   background: var(--blue-soft);
   color: var(--blue);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .landing-title {
   margin: 0 0 14px;
-  font-size: 1.9rem;
+  font-size: 2.35rem;
   font-weight: 800;
-  line-height: 1.28;
-  letter-spacing: -0.03em;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
   color: var(--navy);
 }
 
 .landing-desc {
-  margin: 0 0 30px;
-  font-size: 0.95rem;
+  margin: 0 0 34px;
+  font-size: 1rem;
   color: var(--text-sub);
 }
 
@@ -161,10 +157,10 @@ body {
 }
 
 .landing-status {
-  margin: 22px 0 0;
-  font-size: 0.82rem;
+  margin: 24px 0 0;
+  font-size: 0.84rem;
   color: var(--muted);
-  min-height: 20px;
+  min-height: 22px;
 }
 
 /* 메인 워크스페이스 */
@@ -274,6 +270,13 @@ body {
   color: var(--text);
 }
 
+.head-unit {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
 /* KPI */
 .kpi-grid {
   display: grid;
@@ -298,14 +301,14 @@ body {
 }
 
 .kpi-val {
-  font-size: 1.3rem;
+  font-size: 1.32rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--navy);
 }
 
 .kpi-unit {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   color: var(--text-sub);
   margin-top: 4px;
 }
@@ -331,7 +334,7 @@ body {
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 5px 10px; font-size: 0.77rem; border-radius: 6px; }
-.btn-lg { padding: 12px 22px; font-size: 0.94rem; border-radius: 10px; }
+.btn-lg { padding: 13px 26px; font-size: 0.95rem; border-radius: 10px; }
 
 .btn-primary { background: var(--blue); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--blue-hover); }
@@ -430,6 +433,14 @@ input:focus, select:focus {
 .data-table.compact th, .data-table.compact td { padding: 7px 11px; font-size: 0.8rem; }
 .data-table th.num, .data-table td.num { text-align: right; }
 
+.sub-unit {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--blue);
+}
+
 #sheetPreviewTable th, #sheetPreviewTable td { border-right: 1px solid #f1f5f9; }
 #sheetPreviewTable th:first-child,
 #sheetPreviewTable td:first-child {
@@ -455,19 +466,44 @@ code {
 }
 
 /* 막대 차트 */
-.bar-chart { display: flex; flex-direction: column; gap: 10px; }
+.bar-chart { display: flex; flex-direction: column; gap: 6px; }
 .bar-row {
   display: grid;
-  grid-template-columns: 165px 1fr 88px;
+  grid-template-columns: 165px 1fr 80px;
   align-items: center;
   gap: 10px;
   font-size: 0.81rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
 }
+.bar-row:hover { background: #f1f5f9; }
 .bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-sub); font-weight: 500; }
 .bar-track { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
 .bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #1d4ed8); border-radius: 999px; }
 .bar-fill.neg { background: linear-gradient(90deg, #f87171, #dc2626); }
 .bar-val { text-align: right; font-weight: 600; color: var(--text); }
+
+/* 산점도 인터랙션 */
+.quadrant-wrap { display: flex; justify-content: center; align-items: center; }
+.scatter-dot { cursor: pointer; transition: r 0.12s ease, opacity 0.12s ease; }
+
+/* 공용 호버 툴팁 */
+.chart-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.95);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+  max-width: 280px;
+}
+.chart-tooltip strong { color: #93c5fd; }
 
 .meta-box { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 8px; }
 .alert-warn {
@@ -490,11 +526,8 @@ code {
 .badge-ok { background: var(--success-soft); color: var(--success); }
 .badge-warn { background: var(--danger-soft); color: var(--danger); }
 
-.quadrant-wrap { display: flex; justify-content: center; align-items: center; }
-
 @media (max-width: 640px) {
-  .landing-box { padding: 34px 22px; }
-  .landing-title { font-size: 1.5rem; }
+  .landing-title { font-size: 1.7rem; }
   .grid-2 { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 110px 1fr 72px; }
 }
