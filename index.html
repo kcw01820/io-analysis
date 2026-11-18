@@ -3,219 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2023년 한국 산업연관표(연장표) 경제파급분석 플랫폼</title>
-  <link rel="stylesheet" href="./style.css?v=7" />
+  <title>2023 한국 산업연관표 분석</title>
+  <link rel="stylesheet" href="./style.css?v=8" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-badges">
-          <span class="brand-kicker">KOREA IO ANALYTICS</span>
-          <span class="brand-tech">Pyodide WebAssembly · NumPy Engine</span>
-        </div>
-        <h1>한국 산업연관표 분석 &amp; 경제파급 시뮬레이터</h1>
-        <p class="brand-sub">2023년 연장표(생산자가격) 기반 대·중·소·기본부문 통합 투입산출모형 (단위: 백만원, 조원)</p>
+  <!-- 상단 네비게이션 바 -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-brand">
+        <span class="brand-mark">IO</span>
+        <span class="brand-title">2023 산업연관분석</span>
       </div>
-      <div class="header-status">
-        <span id="engineStatus" class="header-badge">엔진 대기 중</span>
+      <div class="topbar-right">
+        <span id="engineStatus" class="status-pill">대기 중</span>
+        <button id="btnLoadRepoData" class="btn btn-sm btn-ghost-light">자료 새로고침</button>
+        <label class="btn btn-sm btn-ghost-light file-label" for="fileInput">
+          파일 선택
+          <input id="fileInput" type="file" accept=".xlsx" multiple hidden />
+        </label>
       </div>
     </div>
   </header>
 
-  <main class="container">
-    <!-- 상단 제어 패널 -->
-    <section class="card control-panel">
-      <div class="control-row">
-        <div class="control-actions">
-          <button id="btnLoadRepoData" class="btn btn-primary">data/ 기본 자료 불러오기</button>
-          <label class="btn btn-outline file-label" for="fileInput">
-            로컬 Excel 파일 선택
-            <input id="fileInput" type="file" accept=".xlsx" multiple hidden />
-          </label>
-        </div>
+  <!-- 초기 시작 화면 (로딩 전) -->
+  <section id="landingView" class="landing-wrap">
+    <div class="landing-box">
+      <span class="landing-tag">2023년 한국은행 산업연관표 (연장표)</span>
+      <h1 class="landing-title">산업연관분석 및<br />경제파급 시뮬레이터</h1>
+      <p class="landing-desc">
+        대·중·소·기본부문 투입산출표 기반 전후방 연쇄효과 및 충격 시뮬레이션
+      </p>
 
-        <div class="control-selectors">
-          <div class="field-inline">
-            <label for="globalLevelSelect">분석 분류</label>
-            <select id="globalLevelSelect" disabled>
-              <option value="">자료 로딩 필요</option>
-            </select>
-          </div>
-          <div class="field-inline">
-            <label for="globalModelType">파급모형</label>
-            <select id="globalModelType">
-              <option value="domestic_est">국산거래표 추정 (수입누출 반영)</option>
-              <option value="total">총거래표 기준 (수입포함)</option>
-            </select>
-          </div>
-        </div>
+      <div class="landing-actions">
+        <button id="btnHeroLoad" class="btn btn-primary btn-lg">분석 시작하기</button>
+        <button id="btnHeroLocal" class="btn btn-outline btn-lg">내 PC Excel 열기</button>
       </div>
 
-      <div class="progress-bar-wrap">
-        <span class="progress-dot"></span>
-        <span id="loadProgressText" class="progress-text">
-          상단 또는 아래 시작 버튼으로 2023년 산업연관표 Excel 자료를 불러오세요.
-        </span>
+      <p id="heroProgressText" class="landing-status">
+        저장소의 기본 투입산출표(6개 Excel)를 불러와 분석을 시작합니다.
+      </p>
+    </div>
+  </section>
+
+  <!-- 메인 대시보드 (로딩 후) -->
+  <main id="workspaceView" class="container hidden">
+    <!-- 탭 + 글로벌 필터 한 줄 바 -->
+    <div class="workspace-bar">
+      <nav class="tabs" aria-label="분석 메뉴">
+        <button class="tab-btn active" data-tab="tab-structure">거시 · 산업 구조</button>
+        <button class="tab-btn" data-tab="tab-linkage">산업연관 · 전후방</button>
+        <button class="tab-btn" data-tab="tab-simulation">시뮬레이션</button>
+        <button class="tab-btn" data-tab="tab-verify">정합성 · 드릴다운</button>
+        <button class="tab-btn" data-tab="tab-data">원자료 · 상품분류</button>
+      </nav>
+
+      <div class="global-controls">
+        <select id="globalLevelSelect" aria-label="분석 분류" disabled>
+          <option value="">로딩 중</option>
+        </select>
+        <select id="globalModelType" aria-label="파급 모형">
+          <option value="domestic_est">국산거래표 추정</option>
+          <option value="total">총거래표 기준</option>
+        </select>
       </div>
-      <div id="loadedFilesChips" class="chips-wrap"></div>
-    </section>
+    </div>
 
-    <!-- 탭 내비게이션 -->
-    <nav class="tab-nav" aria-label="분석 메뉴">
-      <button class="tab-btn active" data-tab="tab-overview">0. 개요 · 시작</button>
-      <button class="tab-btn" data-tab="tab-data">1. 자료 탐색 · 상품분류</button>
-      <button class="tab-btn" data-tab="tab-structure">2. 거시 · 산업 구조</button>
-      <button class="tab-btn" data-tab="tab-linkage">3. 산업연관 · 전후방</button>
-      <button class="tab-btn" data-tab="tab-simulation">4. 경제파급 시뮬레이션</button>
-      <button class="tab-btn" data-tab="tab-verify">5. 정합성 검증 · 드릴다운</button>
-    </nav>
+    <div id="loadProgressText" class="sub-status-bar"></div>
+    <div id="loadedFilesChips" class="chips-wrap"></div>
 
-    <!-- TAB 0: 첫 시작 화면 (Overview) -->
-    <section id="tab-overview" class="tab-panel active">
-      <div class="hero-card">
-        <div class="hero-grid-bg"></div>
-        <div class="hero-content">
-          <div class="hero-eyebrow">2023 EXTENDED INPUT-OUTPUT TABLE WORKBENCH</div>
-          <h2 class="hero-title">산업 간 공급망 연쇄효과와 정책 시나리오를<br />브라우저에서 즉시 시뮬레이션합니다</h2>
-          <p class="hero-desc">
-            한국은행 2023년 산업연관표(연장표) 4대 분류 체계와 상품분류 계층 데이터를 WebAssembly 기반 Python(NumPy)으로 직접 연산합니다.
-            별도 서버 없이 모든 행렬 역산과 파급효과 분석이 로컬 브라우저 안에서 투명하게 수행됩니다.
-          </p>
-
-          <div class="hero-formulas">
-            <span class="formula-pill">투입계수 <code>A = Z · X̂⁻¹</code></span>
-            <span class="formula-pill">레온티에프 역행렬 <code>L = (I - Aᵈ)⁻¹</code></span>
-            <span class="formula-pill">생산유발 <code>ΔX = L · ΔY</code></span>
-            <span class="formula-pill">항등식 검증 <code>vᵀL + 1ᵀAᵐL = 1</code></span>
-          </div>
-
-          <div class="hero-actions">
-            <button id="btnHeroLoad" class="btn btn-hero-primary">기본 자료 불러오기 및 분석 시작 →</button>
-            <button id="btnHeroLocal" class="btn btn-hero-ghost">내 PC Excel 파일 직접 업로드</button>
-          </div>
-          <div class="hero-status-line">
-            <span class="hero-dot"></span>
-            <span id="heroProgressText">대기 중 — 시작 버튼을 누르면 data/ 폴더의 6개 Excel 파일을 자동으로 불러옵니다.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="feature-num">01</div>
-          <h3>4계층 통합 산업분류</h3>
-          <p>대분류(33), 중분류(83), 소분류(165), 기본부문(380) 및 상품분류 계층표를 연동해 거시와 미시를 오가며 분석합니다.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-num">02</div>
-          <h3>전후방 연쇄효과 진단</h3>
-          <p>영향력계수(후방)와 감응도계수(전방)를 4분면 산점도로 시각화해 핵심 기간산업과 최종수요형 산업을 식별합니다.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-num">03</div>
-          <h3>경제파급 시뮬레이터</h3>
-          <p>반도체 수출 증감, 자동차·이차전지 투자 등 최종수요 충격(ΔY)에 따른 생산·부가가치·임금·수입 유발을 산출합니다.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-num">04</div>
-          <h3>수급 항등식 자동 검증</h3>
-          <p>각 분류표의 총산출=총투입 및 총공급=총수요 오차를 자동 검증하고 대분류 하위 드릴다운 비교를 제공합니다.</p>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head">
-            <h2>모형 사양 및 데이터 기준</h2>
-            <span class="spec-badge">Specification</span>
-          </div>
-          <table class="data-table compact">
-            <tbody>
-              <tr><th>기준 자료</th><td>2023년 산업연관표(연장표) · 상품분류표</td></tr>
-              <tr><th>가격 평가</th><td>생산자가격 평가 (Producer's Price)</td></tr>
-              <tr><th>금액 단위</th><td>백만원 (요약 KPI는 조원 환산 병기)</td></tr>
-              <tr><th>수입 조정</th><td>국산거래표 추정(<code>Aᵈ = (I - m̂)A</code>) / 총거래표 비교 지원</td></tr>
-              <tr><th>연산 엔진</th><td>Pyodide v0.26.4 (Python 3.12 + NumPy + OpenPyXL)</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h2>권장 분석 워크플로우</h2>
-            <span class="spec-badge">Workflow</span>
-          </div>
-          <ol class="workflow-list">
-            <li><strong>자료 로딩</strong> — 상단 또는 시작 버튼으로 6개 Excel 파일을 메모리에 로드합니다.</li>
-            <li><strong>구조 파악</strong> — <code>2. 거시·산업 구조</code>에서 총공급·부가가치율·수출입 구조를 확인합니다.</li>
-            <li><strong>연관 진단</strong> — <code>3. 산업연관·전후방</code>에서 특정 산업의 공급망과 유발계수를 조회합니다.</li>
-            <li><strong>충격 실험</strong> — <code>4. 경제파급 시뮬레이션</code>에서 정책·수출 충격(ΔY) 효과를 계산하고 CSV로 저장합니다.</li>
-          </ol>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 1: 자료 탐색 및 상품분류 -->
-    <section id="tab-data" class="tab-panel">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>Excel 시트 탐색기</h2>
-            <p class="card-desc">불러온 파일별 시트 구조와 원자료 행을 검색·미리보기합니다.</p>
-          </div>
-        </div>
-        <div class="toolbar">
-          <select id="sheetFileSelect" aria-label="파일 선택"></select>
-          <select id="sheetNameSelect" aria-label="시트 선택"></select>
-          <input id="sheetSearchInput" type="text" placeholder="시트 내 검색어 (예: 반도체, 9090)" />
-          <button id="btnSearchSheet" class="btn btn-secondary">조회</button>
-        </div>
-        <div id="sheetMetaBox" class="meta-box">파일을 불러오면 시트 정보가 표시됩니다.</div>
-        <div class="table-scroll">
-          <table id="sheetPreviewTable" class="data-table compact">
-            <tbody><tr><td class="empty-cell">자료 로딩 후 시트 미리보기가 표시됩니다.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>상품분류 계층 검색 (대 → 중 → 소 → 기본부문)</h2>
-            <p class="card-desc">품목명 또는 코드로 검색하고 해당 산업의 전후방 연관분석 탭으로 바로 이동할 수 있습니다.</p>
-          </div>
-        </div>
-        <div class="toolbar">
-          <input id="classSearchInput" type="text" placeholder="품목명 또는 코드 입력 (예: 반도체, 자동차, AI, 3102)" />
-          <button id="btnSearchClass" class="btn btn-secondary">분류 검색</button>
-          <span id="classSummaryCount" class="muted-text"></span>
-        </div>
-        <div class="table-scroll">
-          <table id="classTable" class="data-table">
-            <thead>
-              <tr>
-                <th>대분류 (33)</th>
-                <th>중분류 (83)</th>
-                <th>소분류 (165)</th>
-                <th>기본부문 (380)</th>
-                <th>연관분석 이동</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td colspan="5" class="empty-cell">자료 로딩 후 상품분류표가 표시됩니다.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 2: 거시 및 산업 구조 -->
-    <section id="tab-structure" class="tab-panel">
+    <!-- TAB 1: 거시 및 산업 구조 -->
+    <section id="tab-structure" class="tab-panel active">
       <div id="macroKpiGrid" class="kpi-grid kpi-3">
         <div class="kpi-card"><div class="kpi-title">총공급 (국내산출+수입)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
         <div class="kpi-card"><div class="kpi-title">국내 총산출액</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총 부가가치 (GDP 기준)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">총 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
         <div class="kpi-card"><div class="kpi-title">총수입 / 총수출</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
         <div class="kpi-card"><div class="kpi-title">중간투입률 / 부가가치율</div><div class="kpi-val">-</div><div class="kpi-unit">%</div></div>
         <div class="kpi-card"><div class="kpi-title">대외무역 비중</div><div class="kpi-val">-</div><div class="kpi-unit">(수출+수입)/총공급</div></div>
@@ -224,7 +85,7 @@
       <div class="grid-2">
         <div class="card">
           <div class="card-head">
-            <h2>상위 10개 산업 비교</h2>
+            <h2>상위 10개 산업</h2>
             <select id="structureChartMetric" aria-label="지표 선택">
               <option value="output">총산출액 (백만원)</option>
               <option value="va">부가가치 (백만원)</option>
@@ -240,19 +101,17 @@
         </div>
 
         <div class="card">
-          <div class="card-head">
-            <h2>최종수요 · 부가가치 구성</h2>
-          </div>
+          <div class="card-head"><h2>최종수요 · 부가가치 구성</h2></div>
           <div id="macroBreakdownBox"></div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <h2>전체 산업별 산출 · 부가가치 · 교역 구조표</h2>
+          <h2>산업별 구조표</h2>
           <div class="toolbar-inline">
-            <input id="structureFilterInput" type="text" placeholder="산업명 또는 코드 필터..." />
-            <button id="btnExportStructureCsv" class="btn btn-outline">CSV 다운로드</button>
+            <input id="structureFilterInput" type="text" placeholder="산업명 · 코드 검색" />
+            <button id="btnExportStructureCsv" class="btn btn-outline">CSV 저장</button>
           </div>
         </div>
         <div class="table-scroll tall">
@@ -272,26 +131,26 @@
                 <th class="num">수입률(%)</th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="11" class="empty-cell">자료를 불러오면 표가 생성됩니다.</td></tr></tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <!-- TAB 3: 산업연관 및 전후방 분석 -->
+    <!-- TAB 2: 산업연관 및 전후방 분석 -->
     <section id="tab-linkage" class="tab-panel">
-      <div class="card">
+      <div class="card compact-card">
         <div class="toolbar" style="margin-bottom:0;">
-          <input id="sectorFilterInput" type="text" placeholder="산업 검색 필터..." />
+          <input id="sectorFilterInput" type="text" placeholder="산업 필터..." />
           <select id="sectorSelect" class="wide-select" aria-label="분석 산업 선택"></select>
-          <button id="btnAnalyzeSector" class="btn btn-primary">연관분석 실행</button>
+          <button id="btnAnalyzeSector" class="btn btn-primary">조회</button>
         </div>
         <div id="sectorWarningBox" class="alert-warn hidden"></div>
       </div>
 
       <div id="sectorKpiGrid" class="kpi-grid kpi-3">
         <div class="kpi-card"><div class="kpi-title">총산출 / 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">생산유발계수 (열합)</div><div class="kpi-val">-</div><div class="kpi-unit">최종수요 1단위당</div></div>
+        <div class="kpi-card"><div class="kpi-title">생산유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">최종수요 1단위당</div></div>
         <div class="kpi-card"><div class="kpi-title">부가가치유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">최종수요 1단위당</div></div>
         <div class="kpi-card"><div class="kpi-title">간접 수입유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">국내생산 1단위당</div></div>
         <div class="kpi-card"><div class="kpi-title">영향력계수 (후방연쇄)</div><div class="kpi-val">-</div><div class="kpi-unit">평균=1.0</div></div>
@@ -300,7 +159,7 @@
 
       <div class="grid-2">
         <div class="card">
-          <div class="card-head"><h2>후방 투입구조 Top 10 (원재료 조달)</h2></div>
+          <div class="card-head"><h2>후방 투입구조 Top 10</h2></div>
           <div class="table-scroll">
             <table id="upstreamTable" class="data-table compact">
               <thead><tr><th>코드</th><th>공급 산업</th><th class="num">투입액(백만원)</th><th class="num">투입계수</th><th class="num">비중(%)</th></tr></thead>
@@ -310,7 +169,7 @@
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>전방 배분구조 Top 10 (중간재 공급)</h2></div>
+          <div class="card-head"><h2>전방 배분구조 Top 10</h2></div>
           <div class="table-scroll">
             <table id="downstreamTable" class="data-table compact">
               <thead><tr><th>코드</th><th>수요 산업</th><th class="num">배분액(백만원)</th><th class="num">배분계수</th><th class="num">비중(%)</th></tr></thead>
@@ -322,7 +181,7 @@
 
       <div class="grid-2">
         <div class="card">
-          <div class="card-head"><h2>생산유발 파급효과 Top 10 (레온티에프 역행렬)</h2></div>
+          <div class="card-head"><h2>생산유발 파급 Top 10</h2></div>
           <div class="table-scroll">
             <table id="inducedTopTable" class="data-table compact">
               <thead><tr><th>코드</th><th>파급 산업</th><th class="num">유발계수</th><th class="num">비중(%)</th></tr></thead>
@@ -332,72 +191,68 @@
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>전후방 연쇄효과 4분면 포지셔닝</h2></div>
+          <div class="card-head"><h2>전후방 연쇄효과 포지셔닝</h2></div>
           <div id="quadrantChartBox" class="quadrant-wrap"></div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 4: 경제파급 시뮬레이션 -->
+    <!-- TAB 3: 경제파급 시뮬레이션 -->
     <section id="tab-simulation" class="tab-panel">
       <div class="card">
         <div class="card-head">
-          <div>
-            <h2>시나리오 설정 (최종수요 충격 ΔY, 단위: 백만원)</h2>
-            <p class="card-desc">프리셋 시나리오를 선택하거나 직접 산업별 충격 금액을 추가해 ΔX = (I - A)⁻¹ ΔY 파급효과를 계산합니다.</p>
-          </div>
+          <h2>최종수요 충격 시나리오 (단위: 백만원)</h2>
         </div>
 
         <div class="preset-group">
-          <span class="preset-label">빠른 프리셋:</span>
           <button class="btn btn-chip" data-preset="semi_plus">반도체 수출 +10조원</button>
           <button class="btn btn-chip neg" data-preset="semi_minus">반도체 수출 -10조원</button>
           <button class="btn btn-chip" data-preset="ev">자동차·이차전지 +5조원</button>
-          <button class="btn btn-chip" data-preset="soc">건설·SOC 투자 +3조원</button>
+          <button class="btn btn-chip" data-preset="soc">건설·SOC +3조원</button>
           <button class="btn btn-chip" data-preset="service">음식숙박·운송 +2조원</button>
         </div>
 
-        <div class="toolbar sim-input-bar">
+        <div class="toolbar">
           <select id="simSectorSelect" class="wide-select" aria-label="충격 산업 선택"></select>
           <div class="input-with-unit">
             <input id="simShockInput" type="number" step="100000" value="1000000" placeholder="금액(백만원)" />
             <span id="simAmountPreview" class="unit-preview">(= 1.00 조원)</span>
           </div>
-          <button id="btnAddShock" class="btn btn-secondary">충격 추가</button>
-          <button id="btnClearShock" class="btn btn-outline">전체 초기화</button>
-          <button id="btnRunSimulation" class="btn btn-primary">시뮬레이션 실행</button>
+          <button id="btnAddShock" class="btn btn-outline">추가</button>
+          <button id="btnClearShock" class="btn btn-outline">초기화</button>
+          <button id="btnRunSimulation" class="btn btn-primary">실행</button>
         </div>
 
         <div class="table-scroll">
           <table id="shockListTable" class="data-table compact">
             <thead>
-              <tr><th>코드</th><th>충격 산업</th><th class="num">충격액(백만원)</th><th class="num">환산(조원)</th><th>관리</th></tr>
+              <tr><th>코드</th><th>충격 산업</th><th class="num">충격액(백만원)</th><th class="num">환산</th><th>관리</th></tr>
             </thead>
             <tbody>
-              <tr><td colspan="5" class="empty-cell">충격 항목을 추가하거나 위 프리셋을 선택하세요.</td></tr>
+              <tr><td colspan="5" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <div id="simKpiGrid" class="kpi-grid kpi-5">
-        <div class="kpi-card"><div class="kpi-title">총 최종수요 충격 (ΔY)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총 생산유발액 (ΔX)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총 부가가치유발액</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">피용자보수(임금) 유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">중간재 수입유발액</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">최종수요 충격 (ΔY)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">총 생산유발 (ΔX)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">부가가치유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">임금유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">중간재 수입유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
       </div>
 
       <div class="card">
         <div class="card-head">
           <h2>생산유발 상위 10개 산업</h2>
-          <button id="btnExportSimCsv" class="btn btn-outline">결과 CSV 다운로드</button>
+          <button id="btnExportSimCsv" class="btn btn-outline">CSV 저장</button>
         </div>
         <div id="simBarChart" class="bar-chart"></div>
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>산업별 파급효과 상세 내역 (상위 120개 부문)</h2></div>
+        <div class="card-head"><h2>상세 파급효과 (상위 120개)</h2></div>
         <div class="table-scroll tall">
           <table id="simResultTable" class="data-table">
             <thead>
@@ -419,41 +274,31 @@
       </div>
     </section>
 
-    <!-- TAB 5: 정합성 검증 및 다계층 드릴다운 -->
+    <!-- TAB 4: 정합성 검증 및 드릴다운 -->
     <section id="tab-verify" class="tab-panel">
       <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>투입산출표 수급·투입산출 균형 검증</h2>
-            <p class="card-desc">각 분류별 총산출=총투입 및 총공급=총수요 항등식 오차를 자동 검증합니다.</p>
-          </div>
-        </div>
+        <div class="card-head"><h2>투입산출 균형 검증</h2></div>
         <div class="table-scroll">
           <table id="verifyTable" class="data-table">
             <thead>
               <tr>
                 <th>분류</th>
                 <th class="num">부문 수</th>
-                <th class="num">총산출 합계(백만원)</th>
-                <th class="num">총투입 합계(백만원)</th>
+                <th class="num">총산출(백만원)</th>
+                <th class="num">총투입(백만원)</th>
                 <th class="num">총공급/수요(백만원)</th>
                 <th class="num">총부가가치(백만원)</th>
                 <th class="num">최대 오차</th>
-                <th>검증 결과</th>
+                <th>결과</th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="8" class="empty-cell">자료 로딩 후 자동 검증됩니다.</td></tr></tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>다계층 드릴다운 분석 (대분류 → 중/소/기본부문 분해)</h2>
-            <p class="card-desc">선택한 대분류 산업 내부의 세부 산업별 비중과 유발계수 차이를 비교합니다.</p>
-          </div>
-        </div>
+        <div class="card-head"><h2>다계층 드릴다운 (대분류 → 세부 분류)</h2></div>
         <div class="toolbar">
           <select id="drillMajorSelect" class="wide-select" aria-label="대분류 선택"></select>
           <select id="drillTargetLevel" aria-label="하위 분류 선택">
@@ -461,7 +306,7 @@
             <option value="minor165">소분류 (165부문)</option>
             <option value="basic380">기본부문 (380부문)</option>
           </select>
-          <button id="btnRunDrilldown" class="btn btn-primary">하위 산업 분해</button>
+          <button id="btnRunDrilldown" class="btn btn-primary">분해 조회</button>
         </div>
         <div class="table-scroll tall">
           <table id="drillTable" class="data-table">
@@ -470,27 +315,60 @@
                 <th>코드</th>
                 <th>하위 산업명</th>
                 <th class="num">총산출(백만원)</th>
-                <th class="num">대분류 내 비중(%)</th>
+                <th class="num">비중(%)</th>
                 <th class="num">부가가치율(%)</th>
                 <th class="num">수출률(%)</th>
                 <th class="num">생산유발계수</th>
                 <th class="num">부가가치유발계수</th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="8" class="empty-cell">대분류와 하위 분류를 선택해 분해 버튼을 누르세요.</td></tr></tbody>
+            <tbody><tr><td colspan="8" class="empty-cell">대분류와 하위 분류를 선택하세요.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: 원자료 및 상품분류 -->
+    <section id="tab-data" class="tab-panel">
+      <div class="card">
+        <div class="card-head"><h2>Excel 시트 탐색기</h2></div>
+        <div class="toolbar">
+          <select id="sheetFileSelect" aria-label="파일 선택"></select>
+          <select id="sheetNameSelect" aria-label="시트 선택"></select>
+          <input id="sheetSearchInput" type="text" placeholder="시트 내 검색어..." />
+          <button id="btnSearchSheet" class="btn btn-primary">조회</button>
+        </div>
+        <div id="sheetMetaBox" class="meta-box"></div>
+        <div class="table-scroll">
+          <table id="sheetPreviewTable" class="data-table compact"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>상품분류 계층 검색</h2></div>
+        <div class="toolbar">
+          <input id="classSearchInput" type="text" placeholder="품목명 또는 코드 검색 (예: 반도체, 자동차)" />
+          <button id="btnSearchClass" class="btn btn-primary">검색</button>
+          <span id="classSummaryCount" class="muted-text"></span>
+        </div>
+        <div class="table-scroll">
+          <table id="classTable" class="data-table">
+            <thead>
+              <tr>
+                <th>대분류 (33)</th>
+                <th>중분류 (83)</th>
+                <th>소분류 (165)</th>
+                <th>기본부문 (380)</th>
+                <th>바로가기</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
           </table>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="app-footer">
-    <div class="footer-inner">
-      <span>2023년 한국 산업연관표(연장표) 기반 투입산출분석 웹앱</span>
-      <span>Client-side Pyodide(WebAssembly) · 단위: 백만원 / 조원</span>
-    </div>
-  </footer>
-
-  <script src="./app.js?v=7"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>
