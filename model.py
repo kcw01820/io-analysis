@@ -1,7 +1,6 @@
 import json
 import math
 import numpy as np
-import openpyxl
 
 WORKBOOKS = {}       # filename -> {"sheets": [...], "sheet_meta": {...}, "raw_rows": {...}}
 IO_TABLES = {}       # level -> parsed dict
