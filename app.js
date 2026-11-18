@@ -46,6 +46,9 @@ worker.onmessage = (e) => {
 
 function setProgress(text, mode = "idle") {
   document.getElementById("loadProgressText").textContent = text;
+  const heroText = document.getElementById("heroProgressText");
+  if (heroText) heroText.textContent = text;
+
   const badge = document.getElementById("engineStatus");
   if (mode === "busy") {
     badge.textContent = "처리 중...";
@@ -90,6 +93,11 @@ function colLetter(idx) {
   return s;
 }
 
+function switchTab(tabId) {
+  const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+  if (btn) btn.click();
+}
+
 // 탭 전환
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -100,10 +108,20 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
+// 시작 화면 버튼 연동
+document.getElementById("btnHeroLoad").addEventListener("click", () => {
+  document.getElementById("btnLoadRepoData").click();
+});
+document.getElementById("btnHeroLocal").addEventListener("click", () => {
+  document.getElementById("fileInput").click();
+});
+
 // 1. data/ 폴더에서 기본 Excel 불러오기
 document.getElementById("btnLoadRepoData").addEventListener("click", async () => {
   const btn = document.getElementById("btnLoadRepoData");
+  const heroBtn = document.getElementById("btnHeroLoad");
   btn.disabled = true;
+  if (heroBtn) heroBtn.disabled = true;
   try {
     setProgress("Pyodide 엔진을 초기화하는 중입니다...", "busy");
     await callWorker("init");
@@ -142,6 +160,7 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
     setProgress("오류 발생: " + err.message, "idle");
   } finally {
     btn.disabled = false;
+    if (heroBtn) heroBtn.disabled = false;
   }
 });
 
@@ -200,6 +219,12 @@ async function refreshAllAfterLoad() {
     await loadLevelData();
     await loadVerification();
     await populateMajorDrilldown();
+
+    // 시작 화면에서 로딩 완료 시 거시·산업 구조 대시보드로 자동 전환
+    const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+    if (activeTab === "tab-overview") {
+      switchTab("tab-structure");
+    }
   }
 }
 
@@ -294,7 +319,7 @@ window.jumpToSector = async function (targetLevel, sectorCode) {
   resetSimulationView();
 
   await loadLevelData();
-  document.querySelector('[data-tab="tab-linkage"]').click();
+  switchTab("tab-linkage");
   document.getElementById("sectorSelect").value = sectorCode;
   await loadSectorDetail();
 };
@@ -307,12 +332,23 @@ document.getElementById("globalLevelSelect").addEventListener("change", async (e
   renderShockList();
   resetSimulationView();
   await loadLevelData();
+
+  const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+  if (activeTab === "tab-overview" || activeTab === "tab-data") {
+    switchTab("tab-structure");
+  }
 });
 
 document.getElementById("globalModelType").addEventListener("change", async (e) => {
   state.modelType = e.target.value;
+  if (!state.currentLevel) return;
   await loadSectorDetail();
   if (state.shocks.length > 0) await runSimulation();
+
+  const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+  if (activeTab === "tab-overview" || activeTab === "tab-data" || activeTab === "tab-structure") {
+    switchTab("tab-linkage");
+  }
 });
 
 async function loadLevelData() {
