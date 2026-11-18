@@ -70,8 +70,43 @@ function fmtNum(v, digits = 0) {
   });
 }
 
-function fmtJo(vMillion) {
-  return (Number(vMillion) / 1_000_000).toFixed(2) + " 조원";
+function fmtJo(vMillion, signed = false) {
+  const n = Number(vMillion);
+  if (Number.isNaN(n)) return "-";
+  const jo = n / 1_000_000;
+  const digits = Math.abs(jo) > 0 && Math.abs(jo) < 0.1 ? 3 : 2;
+  const sign = signed && jo > 0 ? "+" : "";
+  return `${sign}${jo.toLocaleString("ko-KR", { minimumFractionDigits: digits, maximumFractionDigits: digits })} 조원`;
+}
+
+function fmtJoShort(vMillion) {
+  const n = Number(vMillion);
+  if (Number.isNaN(n)) return "-";
+  if (Math.abs(n) >= 10_000_000) return (n / 1_000_000).toFixed(1) + "조";
+  if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(2) + "조";
+  if (Math.abs(n) >= 100) return Math.round(n / 100).toLocaleString("ko-KR") + "억";
+  return fmtNum(n, 0) + "백만";
+}
+
+function fmtKoreanUnit(vMillion) {
+  const n = Number(vMillion);
+  if (Number.isNaN(n) || Math.abs(n) < 100) return "";
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 10_000_000) {
+    return `${sign}${(abs / 1_000_000).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}조`;
+  }
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}조`;
+  }
+  const eok = Math.round(abs / 100);
+  return `${sign}${eok.toLocaleString("ko-KR")}억`;
+}
+
+function fmtMoneyCell(vMillion, digits = 0) {
+  const numStr = fmtNum(vMillion, digits);
+  const unit = fmtKoreanUnit(vMillion);
+  return unit ? `${numStr}<span class="sub-unit">(${unit})</span>` : numStr;
 }
 
 function escapeHtml(str) {
@@ -93,6 +128,25 @@ function colLetter(idx) {
   return s;
 }
 
+// 공용 툴팁
+function showTooltip(e, html) {
+  const tip = document.getElementById("chartTooltip");
+  tip.innerHTML = html;
+  tip.classList.remove("hidden");
+  const pad = 14;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  const rect = tip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - 10) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 10) y = e.clientY - rect.height - pad;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+
+function hideTooltip() {
+  document.getElementById("chartTooltip").classList.add("hidden");
+}
+
 function switchTab(tabId) {
   const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
   if (btn) btn.click();
@@ -101,6 +155,7 @@ function switchTab(tabId) {
 // 탭 전환
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
+    hideTooltip();
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
@@ -191,7 +246,6 @@ async function refreshAllAfterLoad() {
   state.files = summary.files;
   state.levels = summary.levels;
 
-  // 시작 화면 숨기고 대시보드 표시
   document.getElementById("landingView").classList.add("hidden");
   document.getElementById("workspaceView").classList.remove("hidden");
 
@@ -362,12 +416,12 @@ function renderMacroKpis(data) {
   const k = data.kpi;
   const cards = document.querySelectorAll("#macroKpiGrid .kpi-card");
   const items = [
-    [fmtNum(k.total_supply), `${fmtJo(k.total_supply)} (백만원)`],
-    [fmtNum(k.total_output), `${fmtJo(k.total_output)} (백만원)`],
-    [fmtNum(k.total_va), `${fmtJo(k.total_va)} (백만원)`],
-    [`${fmtNum(k.total_import)} / ${fmtNum(k.total_export)}`, `수입 ${fmtJo(k.total_import)} / 수출 ${fmtJo(k.total_export)}`],
+    [fmtJo(k.total_supply), `${fmtNum(k.total_supply)} 백만원`],
+    [fmtJo(k.total_output), `${fmtNum(k.total_output)} 백만원`],
+    [fmtJo(k.total_va), `${fmtNum(k.total_va)} 백만원`],
+    [`${(k.total_import / 1e6).toFixed(1)}조 / ${(k.total_export / 1e6).toFixed(1)}조`, `수입 ${fmtNum(k.total_import)} / 수출 ${fmtNum(k.total_export)} 백만원`],
     [`${k.int_input_rate}% / ${k.va_rate}%`, "중간투입률 + 부가가치율 = 100%"],
-    [`${k.trade_ratio}%`, "(수출+수입) / 총공급 비율"]
+    [`${k.trade_ratio}%`, "(수출 + 수입) / 총공급 비율"]
   ];
   cards.forEach((c, idx) => {
     c.querySelector(".kpi-val").textContent = items[idx][0];
@@ -377,6 +431,19 @@ function renderMacroKpis(data) {
 
 document.getElementById("structureChartMetric").addEventListener("change", renderStructureBarChart);
 
+function bindBarTooltips(container, items, isPct) {
+  container.querySelectorAll(".bar-row").forEach((row, idx) => {
+    const item = items[idx];
+    if (!item) return;
+    const tipHtml = isPct
+      ? `<strong>[${escapeHtml(item.code)}] ${escapeHtml(item.name)}</strong><br/>수치: ${fmtNum(item.val, 2)}%`
+      : `<strong>[${escapeHtml(item.code)}] ${escapeHtml(item.name)}</strong><br/>금액: ${fmtNum(item.val)} 백만원 (${fmtJo(item.val)})`;
+    row.addEventListener("mouseenter", (e) => showTooltip(e, tipHtml));
+    row.addEventListener("mousemove", (e) => showTooltip(e, tipHtml));
+    row.addEventListener("mouseleave", hideTooltip);
+  });
+}
+
 function renderStructureBarChart() {
   if (!state.structureData) return;
   const metric = document.getElementById("structureChartMetric").value;
@@ -384,25 +451,29 @@ function renderStructureBarChart() {
   const maxVal = Math.max(...rows.map((r) => Math.abs(r[metric])), 1);
   const isPct = metric.endsWith("_rate");
 
-  document.getElementById("structureBarChart").innerHTML = rows.map((r) => {
+  const box = document.getElementById("structureBarChart");
+  box.innerHTML = rows.map((r) => {
     const w = Math.min(100, (Math.abs(r[metric]) / maxVal) * 100);
+    const disp = isPct ? `${fmtNum(r[metric], 2)}%` : fmtJoShort(r[metric]);
     return `
       <div class="bar-row">
-        <div class="bar-name" title="${escapeHtml(r.code + " " + r.name)}">${escapeHtml(r.code)} ${escapeHtml(r.name)}</div>
+        <div class="bar-name">${escapeHtml(r.code)} ${escapeHtml(r.name)}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
-        <div class="bar-val">${fmtNum(r[metric], isPct ? 2 : 0)}${isPct ? "%" : ""}</div>
+        <div class="bar-val">${disp}</div>
       </div>
     `;
   }).join("");
+
+  bindBarTooltips(box, rows.map((r) => ({ code: r.code, name: r.name, val: r[metric] })), isPct);
 }
 
 function renderBreakdown(data) {
   const mkTable = (title, items) => `
     <h4 style="margin:8px 0 6px; font-size:0.84rem; color:#475569;">${title}</h4>
     <table class="data-table compact" style="margin-bottom:12px;">
-      <thead><tr><th>항목</th><th class="num">금액(백만원)</th><th class="num">구성비(%)</th></tr></thead>
+      <thead><tr><th>항목</th><th class="num">금액</th><th class="num">구성비(%)</th></tr></thead>
       <tbody>
-        ${items.map((x) => `<tr><td>${escapeHtml(x.name)}</td><td class="num">${fmtNum(x.value)}</td><td class="num">${x.share}%</td></tr>`).join("")}
+        ${items.map((x) => `<tr><td>${escapeHtml(x.name)}</td><td class="num">${fmtMoneyCell(x.value)}</td><td class="num">${x.share}%</td></tr>`).join("")}
       </tbody>
     </table>
   `;
@@ -418,18 +489,19 @@ document.getElementById("structureFilterInput").addEventListener("input", () => 
 function renderStructureTable(rows) {
   const q = document.getElementById("structureFilterInput").value.trim().toLowerCase();
   const filtered = q ? rows.filter((r) => (r.code + " " + r.name).toLowerCase().includes(q)) : rows;
+
   document.querySelector("#structureTable tbody").innerHTML = filtered.map((r) => `
     <tr>
       <td><code>${escapeHtml(r.code)}</code></td>
       <td>${escapeHtml(r.name)}</td>
-      <td class="num">${fmtNum(r.output)}</td>
+      <td class="num">${fmtMoneyCell(r.output)}</td>
       <td class="num">${r.output_share}%</td>
-      <td class="num">${fmtNum(r.va)}</td>
+      <td class="num">${fmtMoneyCell(r.va)}</td>
       <td class="num">${r.va_rate}%</td>
       <td class="num">${r.int_input_rate}%</td>
-      <td class="num">${fmtNum(r.export)}</td>
+      <td class="num">${fmtMoneyCell(r.export)}</td>
       <td class="num">${r.export_rate}%</td>
-      <td class="num">${fmtNum(r.import)}</td>
+      <td class="num">${fmtMoneyCell(r.import)}</td>
       <td class="num">${r.import_rate}%</td>
     </tr>
   `).join("");
@@ -476,12 +548,12 @@ async function loadSectorDetail() {
   const k = res.kpi;
   const cards = document.querySelectorAll("#sectorKpiGrid .kpi-card");
   const vals = [
-    [`${fmtNum(k.output)} / ${fmtNum(k.va)}`, "백만원 (총산출 / 부가가치)"],
-    [k.prod_mult.toFixed(3), "최종수요 1단위당 생산유발"],
-    [k.va_mult.toFixed(3), "최종수요 1단위당 부가가치유발"],
-    [k.imp_mult.toFixed(3), "국내생산 1단위당 간접 수입유발"],
-    [k.backward.toFixed(3), k.backward >= 1 ? "평균 이상 후방연쇄(≥1.0)" : "평균 미만(<1.0)"],
-    [k.forward.toFixed(3), k.forward >= 1 ? "평균 이상 전방연쇄(≥1.0)" : "평균 미만(<1.0)"]
+    [`${fmtJo(k.output)} / ${fmtJo(k.va)}`, `${fmtNum(k.output)} / ${fmtNum(k.va)} 백만원`],
+    [k.prod_mult.toFixed(3), "최종수요 1원당 생산유발"],
+    [k.va_mult.toFixed(3), "최종수요 1원당 부가가치유발"],
+    [k.imp_mult.toFixed(3), "국내생산 1원당 간접 수입유발"],
+    [k.backward.toFixed(3), k.backward >= 1 ? "평균 이상 후방연쇄 (≥1.0)" : "평균 미만 (<1.0)"],
+    [k.forward.toFixed(3), k.forward >= 1 ? "평균 이상 전방연쇄 (≥1.0)" : "평균 미만 (<1.0)"]
   ];
   cards.forEach((c, idx) => {
     c.querySelector(".kpi-val").textContent = vals[idx][0];
@@ -489,11 +561,11 @@ async function loadSectorDetail() {
   });
 
   document.querySelector("#upstreamTable tbody").innerHTML = res.upstream.map((r) => `
-    <tr><td><code>${escapeHtml(r.code)}</code></td><td>${escapeHtml(r.name)}</td><td class="num">${fmtNum(r.value)}</td><td class="num">${r.coeff.toFixed(4)}</td><td class="num">${r.share}%</td></tr>
+    <tr><td><code>${escapeHtml(r.code)}</code></td><td>${escapeHtml(r.name)}</td><td class="num">${fmtMoneyCell(r.value)}</td><td class="num">${r.coeff.toFixed(4)}</td><td class="num">${r.share}%</td></tr>
   `).join("");
 
   document.querySelector("#downstreamTable tbody").innerHTML = res.downstream.map((r) => `
-    <tr><td><code>${escapeHtml(r.code)}</code></td><td>${escapeHtml(r.name)}</td><td class="num">${fmtNum(r.value)}</td><td class="num">${r.coeff.toFixed(4)}</td><td class="num">${r.share}%</td></tr>
+    <tr><td><code>${escapeHtml(r.code)}</code></td><td>${escapeHtml(r.name)}</td><td class="num">${fmtMoneyCell(r.value)}</td><td class="num">${r.coeff.toFixed(4)}</td><td class="num">${r.share}%</td></tr>
   `).join("");
 
   document.querySelector("#inducedTopTable tbody").innerHTML = res.induced_top.map((r) => `
@@ -503,9 +575,16 @@ async function loadSectorDetail() {
   renderQuadrantChart(res.scatter);
 }
 
+function getQuadrantLabel(fwd, bwd) {
+  if (fwd >= 1.0 && bwd >= 1.0) return "핵심기간산업형";
+  if (fwd < 1.0 && bwd >= 1.0) return "최종수요제조형";
+  if (fwd >= 1.0 && bwd < 1.0) return "중간재기초형";
+  return "독립산업형";
+}
+
 function renderQuadrantChart(points) {
   const box = document.getElementById("quadrantChartBox");
-  const W = 460, H = 310, PAD = 40;
+  const W = 460, H = 310, PAD = 42;
   const maxX = Math.max(2.0, ...points.map((p) => p.forward)) * 1.05;
   const maxY = Math.max(2.0, ...points.map((p) => p.backward)) * 1.05;
   const sx = (x) => PAD + (x / maxX) * (W - 2 * PAD);
@@ -514,20 +593,18 @@ function renderQuadrantChart(points) {
   const lineX = sx(1.0);
   const lineY = sy(1.0);
 
-  const dots = points.map((p) => {
+  const dots = points.map((p, idx) => {
     const cx = sx(p.forward);
     const cy = sy(p.backward);
     const fill = p.selected ? "#dc2626" : "#1d4ed8";
-    const r = p.selected ? 6 : 3.2;
-    const op = p.selected ? 1 : 0.55;
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" opacity="${op}">
-      <title>[${escapeHtml(p.code)}] ${escapeHtml(p.name)} | 감응도:${p.forward}, 영향력:${p.backward}</title>
-    </circle>`;
+    const r = p.selected ? 6.5 : 4;
+    const op = p.selected ? 1 : 0.65;
+    return `<circle class="scatter-dot" data-idx="${idx}" cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" opacity="${op}" stroke="#ffffff" stroke-width="1" />`;
   }).join("");
 
   const sel = points.find((p) => p.selected);
   const labelSvg = sel
-    ? `<text x="${Math.min(W - 110, sx(sel.forward) + 8)}" y="${Math.max(16, sy(sel.backward) - 8)}" font-size="11" font-weight="700" fill="#b91c1c">${escapeHtml(sel.code)} ${escapeHtml(sel.name.slice(0, 10))}</text>`
+    ? `<text x="${Math.min(W - 120, sx(sel.forward) + 8)}" y="${Math.max(16, sy(sel.backward) - 8)}" font-size="11" font-weight="700" fill="#b91c1c">${escapeHtml(sel.code)} ${escapeHtml(sel.name.slice(0, 12))}</text>`
     : "";
 
   box.innerHTML = `
@@ -546,6 +623,34 @@ function renderQuadrantChart(points) {
       ${labelSvg}
     </svg>
   `;
+
+  box.querySelectorAll(".scatter-dot").forEach((el) => {
+    const p = points[Number(el.dataset.idx)];
+    if (!p) return;
+    const tipHtml = `
+      <strong>[${escapeHtml(p.code)}] ${escapeHtml(p.name)}</strong><br/>
+      감응도(전방): ${p.forward.toFixed(3)} · 영향력(후방): ${p.backward.toFixed(3)}<br/>
+      유형: ${getQuadrantLabel(p.forward, p.backward)}
+    `;
+    el.addEventListener("mouseenter", (e) => {
+      el.setAttribute("r", p.selected ? "8" : "6.5");
+      el.setAttribute("opacity", "1");
+      showTooltip(e, tipHtml);
+    });
+    el.addEventListener("mousemove", (e) => showTooltip(e, tipHtml));
+    el.addEventListener("mouseleave", () => {
+      el.setAttribute("r", p.selected ? "6.5" : "4");
+      el.setAttribute("opacity", p.selected ? "1" : "0.65");
+      hideTooltip();
+    });
+    el.addEventListener("click", () => {
+      hideTooltip();
+      document.getElementById("sectorFilterInput").value = "";
+      populateSectorSelectors();
+      document.getElementById("sectorSelect").value = p.code;
+      loadSectorDetail();
+    });
+  });
 }
 
 // TAB 3: 시뮬레이션
@@ -579,7 +684,7 @@ function resetSimulationView() {
   state.simResult = null;
   document.querySelectorAll("#simKpiGrid .kpi-card").forEach((c) => {
     c.querySelector(".kpi-val").textContent = "-";
-    c.querySelector(".kpi-unit").textContent = "백만원";
+    c.querySelector(".kpi-unit").textContent = "-";
   });
   document.getElementById("simBarChart").innerHTML = "";
   document.querySelector("#simResultTable tbody").innerHTML =
@@ -589,15 +694,14 @@ function resetSimulationView() {
 function renderShockList() {
   const tbody = document.querySelector("#shockListTable tbody");
   if (!state.shocks.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>`;
     return;
   }
   tbody.innerHTML = state.shocks.map((sh, i) => `
     <tr>
       <td><code>${escapeHtml(sh.code)}</code></td>
       <td>${escapeHtml(sh.name)}</td>
-      <td class="num">${fmtNum(sh.amount)}</td>
-      <td class="num">${fmtJo(sh.amount)}</td>
+      <td class="num">${fmtMoneyCell(sh.amount)}</td>
       <td>
         <button class="btn btn-chip" onclick="flipShock(${i})">± 반전</button>
         <button class="btn btn-chip neg" onclick="removeShock(${i})">삭제</button>
@@ -688,11 +792,11 @@ async function runSimulation() {
   const k = res.kpi;
   const cards = document.querySelectorAll("#simKpiGrid .kpi-card");
   const vals = [
-    [fmtNum(k.total_dy), `${fmtJo(k.total_dy)} (백만원)`],
-    [fmtNum(k.total_dx), `${fmtJo(k.total_dx)} | 승수 ${k.prod_multiplier.toFixed(3)}`],
-    [fmtNum(k.total_dv), `${fmtJo(k.total_dv)} | 부가가치유발율 ${k.va_ratio.toFixed(3)}`],
-    [fmtNum(k.total_dw), `${fmtJo(k.total_dw)} (임금 유발)`],
-    [fmtNum(k.total_dm), `${fmtJo(k.total_dm)} (중간재 수입 유발)`]
+    [fmtJo(k.total_dy, true), `${fmtNum(k.total_dy)} 백만원`],
+    [fmtJo(k.total_dx, true), `${fmtNum(k.total_dx)} 백만원 · 승수 ${k.prod_multiplier.toFixed(3)}`],
+    [fmtJo(k.total_dv, true), `${fmtNum(k.total_dv)} 백만원 · 유발율 ${k.va_ratio.toFixed(3)}`],
+    [fmtJo(k.total_dw, true), `${fmtNum(k.total_dw)} 백만원`],
+    [fmtJo(k.total_dm, true), `${fmtNum(k.total_dm)} 백만원`]
   ];
   cards.forEach((c, i) => {
     c.querySelector(".kpi-val").textContent = vals[i][0];
@@ -701,28 +805,31 @@ async function runSimulation() {
 
   const top10 = res.results.slice(0, 10);
   const maxAbs = Math.max(...top10.map((r) => Math.abs(r.total_prod)), 1);
-  document.getElementById("simBarChart").innerHTML = top10.map((r) => {
+  const box = document.getElementById("simBarChart");
+  box.innerHTML = top10.map((r) => {
     const w = Math.min(100, (Math.abs(r.total_prod) / maxAbs) * 100);
     return `
       <div class="bar-row">
         <div class="bar-name">${escapeHtml(r.code)} ${escapeHtml(r.name)}</div>
         <div class="bar-track"><div class="bar-fill ${r.total_prod < 0 ? "neg" : ""}" style="width:${w}%"></div></div>
-        <div class="bar-val">${fmtNum(r.total_prod)}</div>
+        <div class="bar-val">${fmtJoShort(r.total_prod)}</div>
       </div>
     `;
   }).join("");
+
+  bindBarTooltips(box, top10.map((r) => ({ code: r.code, name: r.name, val: r.total_prod })), false);
 
   document.querySelector("#simResultTable tbody").innerHTML = res.results.slice(0, 120).map((r) => `
     <tr>
       <td><code>${escapeHtml(r.code)}</code></td>
       <td>${escapeHtml(r.name)}</td>
-      <td class="num">${fmtNum(r.direct)}</td>
-      <td class="num">${fmtNum(r.indirect)}</td>
-      <td class="num"><strong>${fmtNum(r.total_prod)}</strong></td>
+      <td class="num">${fmtMoneyCell(r.direct, 0)}</td>
+      <td class="num">${fmtMoneyCell(r.indirect, 0)}</td>
+      <td class="num"><strong>${fmtMoneyCell(r.total_prod, 0)}</strong></td>
       <td class="num">${r.share}%</td>
-      <td class="num">${fmtNum(r.va)}</td>
-      <td class="num">${fmtNum(r.wage)}</td>
-      <td class="num">${fmtNum(r.imp)}</td>
+      <td class="num">${fmtMoneyCell(r.va, 0)}</td>
+      <td class="num">${fmtMoneyCell(r.wage, 0)}</td>
+      <td class="num">${fmtMoneyCell(r.imp, 0)}</td>
     </tr>
   `).join("");
 }
@@ -734,10 +841,10 @@ async function loadVerification() {
     <tr>
       <td><strong>${escapeHtml(r.label)}</strong></td>
       <td class="num">${r.n}</td>
-      <td class="num">${fmtNum(r.sum_output)}</td>
-      <td class="num">${fmtNum(r.sum_input)}</td>
-      <td class="num">${fmtNum(r.sum_supply_demand)}</td>
-      <td class="num">${fmtNum(r.sum_va)}</td>
+      <td class="num">${fmtMoneyCell(r.sum_output)}</td>
+      <td class="num">${fmtMoneyCell(r.sum_input)}</td>
+      <td class="num">${fmtMoneyCell(r.sum_supply_demand)}</td>
+      <td class="num">${fmtMoneyCell(r.sum_va)}</td>
       <td class="num">${fmtNum(r.max_error, 2)}</td>
       <td>${r.passed ? '<span class="badge-ok">일치(PASS)</span>' : '<span class="badge-warn">차이 확인</span>'}</td>
     </tr>
@@ -765,7 +872,7 @@ document.getElementById("btnRunDrilldown").addEventListener("click", async () =>
     <tr>
       <td><code>${escapeHtml(r.code)}</code></td>
       <td>${escapeHtml(r.name)}</td>
-      <td class="num">${fmtNum(r.output)}</td>
+      <td class="num">${fmtMoneyCell(r.output)}</td>
       <td class="num">${r.share}%</td>
       <td class="num">${r.va_rate}%</td>
       <td class="num">${r.export_rate}%</td>
