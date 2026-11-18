@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2023년 한국 산업연관표(연장표) 분석 시뮬레이터</title>
-  <link rel="stylesheet" href="./style.css?v=6" />
+  <title>2023년 한국 산업연관표(연장표) 경제파급분석 플랫폼</title>
+  <link rel="stylesheet" href="./style.css?v=7" />
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
       <div class="brand">
-        <span class="brand-kicker">2023 Input-Output Analysis</span>
+        <div class="brand-badges">
+          <span class="brand-kicker">KOREA IO ANALYTICS</span>
+          <span class="brand-tech">Pyodide WebAssembly · NumPy Engine</span>
+        </div>
         <h1>한국 산업연관표 분석 &amp; 경제파급 시뮬레이터</h1>
-        <p class="brand-sub">대분류(33) · 중분류(83) · 소분류(165) · 기본부문(380) 통합 투입산출 분석 웹앱 (단위: 백만원, 조원)</p>
+        <p class="brand-sub">2023년 연장표(생산자가격) 기반 대·중·소·기본부문 통합 투입산출모형 (단위: 백만원, 조원)</p>
       </div>
       <div class="header-status">
         <span id="engineStatus" class="header-badge">엔진 대기 중</span>
@@ -52,7 +55,7 @@
       <div class="progress-bar-wrap">
         <span class="progress-dot"></span>
         <span id="loadProgressText" class="progress-text">
-          상단의 [data/ 기본 자료 불러오기]를 눌러 2023년 산업연관표 Excel 자료를 불러오세요.
+          상단 또는 아래 시작 버튼으로 2023년 산업연관표 Excel 자료를 불러오세요.
         </span>
       </div>
       <div id="loadedFilesChips" class="chips-wrap"></div>
@@ -60,15 +63,101 @@
 
     <!-- 탭 내비게이션 -->
     <nav class="tab-nav" aria-label="분석 메뉴">
-      <button class="tab-btn active" data-tab="tab-data">1. 자료 탐색 · 상품분류</button>
+      <button class="tab-btn active" data-tab="tab-overview">0. 개요 · 시작</button>
+      <button class="tab-btn" data-tab="tab-data">1. 자료 탐색 · 상품분류</button>
       <button class="tab-btn" data-tab="tab-structure">2. 거시 · 산업 구조</button>
       <button class="tab-btn" data-tab="tab-linkage">3. 산업연관 · 전후방</button>
       <button class="tab-btn" data-tab="tab-simulation">4. 경제파급 시뮬레이션</button>
       <button class="tab-btn" data-tab="tab-verify">5. 정합성 검증 · 드릴다운</button>
     </nav>
 
+    <!-- TAB 0: 첫 시작 화면 (Overview) -->
+    <section id="tab-overview" class="tab-panel active">
+      <div class="hero-card">
+        <div class="hero-grid-bg"></div>
+        <div class="hero-content">
+          <div class="hero-eyebrow">2023 EXTENDED INPUT-OUTPUT TABLE WORKBENCH</div>
+          <h2 class="hero-title">산업 간 공급망 연쇄효과와 정책 시나리오를<br />브라우저에서 즉시 시뮬레이션합니다</h2>
+          <p class="hero-desc">
+            한국은행 2023년 산업연관표(연장표) 4대 분류 체계와 상품분류 계층 데이터를 WebAssembly 기반 Python(NumPy)으로 직접 연산합니다.
+            별도 서버 없이 모든 행렬 역산과 파급효과 분석이 로컬 브라우저 안에서 투명하게 수행됩니다.
+          </p>
+
+          <div class="hero-formulas">
+            <span class="formula-pill">투입계수 <code>A = Z · X̂⁻¹</code></span>
+            <span class="formula-pill">레온티에프 역행렬 <code>L = (I - Aᵈ)⁻¹</code></span>
+            <span class="formula-pill">생산유발 <code>ΔX = L · ΔY</code></span>
+            <span class="formula-pill">항등식 검증 <code>vᵀL + 1ᵀAᵐL = 1</code></span>
+          </div>
+
+          <div class="hero-actions">
+            <button id="btnHeroLoad" class="btn btn-hero-primary">기본 자료 불러오기 및 분석 시작 →</button>
+            <button id="btnHeroLocal" class="btn btn-hero-ghost">내 PC Excel 파일 직접 업로드</button>
+          </div>
+          <div class="hero-status-line">
+            <span class="hero-dot"></span>
+            <span id="heroProgressText">대기 중 — 시작 버튼을 누르면 data/ 폴더의 6개 Excel 파일을 자동으로 불러옵니다.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-num">01</div>
+          <h3>4계층 통합 산업분류</h3>
+          <p>대분류(33), 중분류(83), 소분류(165), 기본부문(380) 및 상품분류 계층표를 연동해 거시와 미시를 오가며 분석합니다.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-num">02</div>
+          <h3>전후방 연쇄효과 진단</h3>
+          <p>영향력계수(후방)와 감응도계수(전방)를 4분면 산점도로 시각화해 핵심 기간산업과 최종수요형 산업을 식별합니다.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-num">03</div>
+          <h3>경제파급 시뮬레이터</h3>
+          <p>반도체 수출 증감, 자동차·이차전지 투자 등 최종수요 충격(ΔY)에 따른 생산·부가가치·임금·수입 유발을 산출합니다.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-num">04</div>
+          <h3>수급 항등식 자동 검증</h3>
+          <p>각 분류표의 총산출=총투입 및 총공급=총수요 오차를 자동 검증하고 대분류 하위 드릴다운 비교를 제공합니다.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2>모형 사양 및 데이터 기준</h2>
+            <span class="spec-badge">Specification</span>
+          </div>
+          <table class="data-table compact">
+            <tbody>
+              <tr><th>기준 자료</th><td>2023년 산업연관표(연장표) · 상품분류표</td></tr>
+              <tr><th>가격 평가</th><td>생산자가격 평가 (Producer's Price)</td></tr>
+              <tr><th>금액 단위</th><td>백만원 (요약 KPI는 조원 환산 병기)</td></tr>
+              <tr><th>수입 조정</th><td>국산거래표 추정(<code>Aᵈ = (I - m̂)A</code>) / 총거래표 비교 지원</td></tr>
+              <tr><th>연산 엔진</th><td>Pyodide v0.26.4 (Python 3.12 + NumPy + OpenPyXL)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>권장 분석 워크플로우</h2>
+            <span class="spec-badge">Workflow</span>
+          </div>
+          <ol class="workflow-list">
+            <li><strong>자료 로딩</strong> — 상단 또는 시작 버튼으로 6개 Excel 파일을 메모리에 로드합니다.</li>
+            <li><strong>구조 파악</strong> — <code>2. 거시·산업 구조</code>에서 총공급·부가가치율·수출입 구조를 확인합니다.</li>
+            <li><strong>연관 진단</strong> — <code>3. 산업연관·전후방</code>에서 특정 산업의 공급망과 유발계수를 조회합니다.</li>
+            <li><strong>충격 실험</strong> — <code>4. 경제파급 시뮬레이션</code>에서 정책·수출 충격(ΔY) 효과를 계산하고 CSV로 저장합니다.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
     <!-- TAB 1: 자료 탐색 및 상품분류 -->
-    <section id="tab-data" class="tab-panel active">
+    <section id="tab-data" class="tab-panel">
       <div class="card">
         <div class="card-head">
           <div>
@@ -192,7 +281,7 @@
     <!-- TAB 3: 산업연관 및 전후방 분석 -->
     <section id="tab-linkage" class="tab-panel">
       <div class="card">
-        <div class="toolbar">
+        <div class="toolbar" style="margin-bottom:0;">
           <input id="sectorFilterInput" type="text" placeholder="산업 검색 필터..." />
           <select id="sectorSelect" class="wide-select" aria-label="분석 산업 선택"></select>
           <button id="btnAnalyzeSector" class="btn btn-primary">연관분석 실행</button>
@@ -395,6 +484,13 @@
     </section>
   </main>
 
-  <script src="./app.js?v=6"></script>
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <span>2023년 한국 산업연관표(연장표) 기반 투입산출분석 웹앱</span>
+      <span>Client-side Pyodide(WebAssembly) · 단위: 백만원 / 조원</span>
+    </div>
+  </footer>
+
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
