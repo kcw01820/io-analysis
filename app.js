@@ -79,6 +79,17 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function colLetter(idx) {
+  let s = "";
+  let n = idx + 1;
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 // 탭 전환
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -222,11 +233,20 @@ async function loadSheetPreview() {
     tbl.innerHTML = `<tbody><tr><td class="empty-cell">검색 조건에 맞는 행이 없습니다.</td></tr></tbody>`;
     return;
   }
-  tbl.innerHTML = "<tbody>" + res.rows.map((r) =>
+
+  const colCount = res.rows[0].cells.length;
+  const thead = `<thead><tr><th>행</th>${Array.from({ length: colCount }, (_, i) => `<th>${colLetter(i)}</th>`).join("")}</tr></thead>`;
+  const numPattern = /^[-+]?[\d,]+(\.\d+)?$/;
+  const tbody = "<tbody>" + res.rows.map((r) =>
     `<tr><td class="muted">${r.row_no}</td>` +
-    r.cells.map((c) => `<td>${escapeHtml(c)}</td>`).join("") +
+    r.cells.map((c) => {
+      const cls = numPattern.test(String(c).trim()) ? ' class="num"' : "";
+      return `<td${cls}>${escapeHtml(c)}</td>`;
+    }).join("") +
     "</tr>"
   ).join("") + "</tbody>";
+
+  tbl.innerHTML = thead + tbody;
 }
 
 // 상품분류 계층 검색
