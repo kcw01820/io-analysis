@@ -1,4 +1,4 @@
-// Pyodide Web Worker: 브라우저 백그라운드 스레드에서 Python(numpy, openpyxl) 실행
+// Pyodide Web Worker: numpy만 로드하여 빠르게 실행
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
 
 let pyodide = null;
@@ -9,15 +9,11 @@ async function ensurePyodide() {
   self.postMessage({ type: "status", message: "Pyodide(WebAssembly Python) 로딩 중..." });
   pyodide = await loadPyodide();
 
-  self.postMessage({ type: "status", message: "numpy 및 micropip 로딩 중..." });
-  await pyodide.loadPackage(["numpy", "micropip"]);
-
-  self.postMessage({ type: "status", message: "openpyxl(엑셀 패키지) 설치 중..." });
-  const micropip = pyodide.pyimport("micropip");
-  await micropip.install("openpyxl");
+  self.postMessage({ type: "status", message: "numpy 수치계산 엔진 로딩 중..." });
+  await pyodide.loadPackage("numpy");
 
   self.postMessage({ type: "status", message: "model.py 분석 모듈 초기화 중..." });
-  const resp = await fetch("./model.py");
+  const resp = await fetch("./model.py?v=3");
   if (!resp.ok) throw new Error("model.py를 불러올 수 없습니다.");
   const modelCode = await resp.text();
   pyodide.FS.writeFile("model.py", modelCode);
