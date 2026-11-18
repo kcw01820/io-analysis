@@ -1,4 +1,4 @@
-// Pyodide Web Worker: numpy만 로드하여 빠르게 실행
+// Pyodide Web Worker: numpy와 openpyxl 로드
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
 
 let pyodide = null;
@@ -9,8 +9,15 @@ async function ensurePyodide() {
   self.postMessage({ type: "status", message: "Pyodide(WebAssembly Python) 로딩 중..." });
   pyodide = await loadPyodide();
 
-  self.postMessage({ type: "status", message: "numpy 수치계산 엔진 로딩 중..." });
+  self.postMessage({ type: "status", message: "numpy 및 openpyxl 패키지 로딩 중..." });
   await pyodide.loadPackage("numpy");
+  try {
+    await pyodide.loadPackage("openpyxl");
+  } catch (_) {
+    await pyodide.loadPackage("micropip");
+    const micropip = pyodide.pyimport("micropip");
+    await micropip.install("openpyxl");
+  }
 
   self.postMessage({ type: "status", message: "model.py 분석 모듈 초기화 중..." });
   const resp = await fetch("./model.py?v=3");
