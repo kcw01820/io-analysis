@@ -8,7 +8,7 @@ const DEFAULT_DATA_FILES = [
   "2023년 산업연관표(연장표).xlsx"
 ];
 
-const worker = new Worker("./worker.js");
+const worker = new Worker("./worker.js?v=5");
 let msgCounter = 0;
 const pending = new Map();
 
@@ -117,10 +117,10 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
     }
 
     if (loadedCount === 0) {
-      setProgress(
-        `불러오기 실패 원인: ${failed.join(" | ")}`,
-        "idle"
-      );
+      const detail = window.location.protocol === "file:"
+        ? "로컬 file:// 환경에서는 브라우저 보안상 fetch가 차단되므로 GitHub Pages 주소나 로컬 서버에서 실행하거나 오른쪽 [로컬 Excel 파일 선택]을 이용하세요."
+        : `불러오기 실패 원인: ${failed.join(" | ")}`;
+      setProgress(detail, "idle");
     } else {
       const warnMsg = failed.length ? ` (일부 미발견: ${failed.join(", ")})` : "";
       setProgress(`총 ${loadedCount}개 Excel 파일 로딩 완료!${warnMsg}`, "ready");
