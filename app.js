@@ -18,8 +18,8 @@ const state = {
   currentLevel: "",
   modelType: "domestic_est",
   structureData: null,
-  sectorsByLevel: {}, // level -> [{code, name}]
-  shocks: [],         // [{code, name, amount}]
+  sectorsByLevel: {},
+  shocks: [],
   simResult: null
 };
 
@@ -51,14 +51,14 @@ function setProgress(text, mode = "idle") {
 
   const badge = document.getElementById("engineStatus");
   if (mode === "busy") {
-    badge.textContent = "처리 중...";
-    badge.className = "header-badge busy";
+    badge.textContent = "불러오는 중...";
+    badge.className = "status-pill busy";
   } else if (mode === "ready") {
-    badge.textContent = "분석 준비 완료";
-    badge.className = "header-badge ready";
+    badge.textContent = "준비 완료";
+    badge.className = "status-pill ready";
   } else {
-    badge.textContent = "엔진 대기 중";
-    badge.className = "header-badge";
+    badge.textContent = "대기 중";
+    badge.className = "status-pill";
   }
 }
 
@@ -130,7 +130,7 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
     const failed = [];
     for (let i = 0; i < DEFAULT_DATA_FILES.length; i++) {
       const fname = DEFAULT_DATA_FILES[i];
-      setProgress(`Excel 불러오는 중 (${i + 1}/${DEFAULT_DATA_FILES.length}): ${fname}`, "busy");
+      setProgress(`자료 불러오는 중 (${i + 1}/${DEFAULT_DATA_FILES.length}): ${fname}`, "busy");
       const url = "./data/" + encodeURIComponent(fname);
       try {
         const resp = await fetch(url);
@@ -148,12 +148,12 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
 
     if (loadedCount === 0) {
       const detail = window.location.protocol === "file:"
-        ? "로컬 file:// 환경에서는 브라우저 보안상 fetch가 차단되므로 GitHub Pages 주소나 로컬 서버에서 실행하거나 오른쪽 [로컬 Excel 파일 선택]을 이용하세요."
+        ? "로컬 file:// 환경에서는 fetch가 차단됩니다. GitHub Pages 주소에서 열거나 [내 PC Excel 열기]를 이용하세요."
         : `불러오기 실패 원인: ${failed.join(" | ")}`;
       setProgress(detail, "idle");
     } else {
       const warnMsg = failed.length ? ` (일부 미발견: ${failed.join(", ")})` : "";
-      setProgress(`총 ${loadedCount}개 Excel 파일 로딩 완료!${warnMsg}`, "ready");
+      setProgress(`${loadedCount}개 Excel 파일 로딩 완료${warnMsg}`, "ready");
       await refreshAllAfterLoad();
     }
   } catch (err) {
@@ -169,7 +169,7 @@ document.getElementById("fileInput").addEventListener("change", async (e) => {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
   try {
-    setProgress("Pyodide 엔진 초기화 및 로컬 파일 읽는 중...", "busy");
+    setProgress("Pyodide 초기화 및 파일 읽는 중...", "busy");
     await callWorker("init");
     let count = 0;
     for (const f of files) {
@@ -177,7 +177,7 @@ document.getElementById("fileInput").addEventListener("change", async (e) => {
       const buf = await f.arrayBuffer();
       await callWorker("load_file", { filename: f.name, bytes: buf });
     }
-    setProgress(`로컬 Excel 파일 ${count}개 로딩 완료!`, "ready");
+    setProgress(`로컬 Excel ${count}개 로딩 완료`, "ready");
     await refreshAllAfterLoad();
   } catch (err) {
     setProgress("파일 로딩 오류: " + err.message, "idle");
@@ -191,9 +191,13 @@ async function refreshAllAfterLoad() {
   state.files = summary.files;
   state.levels = summary.levels;
 
+  // 시작 화면 숨기고 대시보드 표시
+  document.getElementById("landingView").classList.add("hidden");
+  document.getElementById("workspaceView").classList.remove("hidden");
+
   const chips = document.getElementById("loadedFilesChips");
   chips.innerHTML = Object.entries(state.files)
-    .map(([fname, info]) => `<span class="chip">${escapeHtml(fname)} (${info.sheets.length}개 시트)</span>`)
+    .map(([fname, info]) => `<span class="chip">${escapeHtml(fname)} · ${info.sheets.length}시트</span>`)
     .join("");
 
   const fileSel = document.getElementById("sheetFileSelect");
@@ -219,12 +223,6 @@ async function refreshAllAfterLoad() {
     await loadLevelData();
     await loadVerification();
     await populateMajorDrilldown();
-
-    // 시작 화면에서 로딩 완료 시 거시·산업 구조 대시보드로 자동 전환
-    const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
-    if (activeTab === "tab-overview") {
-      switchTab("tab-structure");
-    }
   }
 }
 
@@ -289,7 +287,7 @@ async function runClassSearch() {
     box.textContent = "(표)상품분류.xlsx가 아직 로딩되지 않았습니다.";
     return;
   }
-  box.textContent = `총 ${res.total}개 기본부문 중 ${res.matched}건 표시 (최대 150건)`;
+  box.textContent = `총 ${res.total}개 기본부문 중 ${res.matched}건`;
   tbody.innerHTML = res.items.map((it) => `
     <tr>
       <td><code>${escapeHtml(it.div_code)}</code> ${escapeHtml(it.div_name)}</td>
@@ -332,11 +330,6 @@ document.getElementById("globalLevelSelect").addEventListener("change", async (e
   renderShockList();
   resetSimulationView();
   await loadLevelData();
-
-  const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
-  if (activeTab === "tab-overview" || activeTab === "tab-data") {
-    switchTab("tab-structure");
-  }
 });
 
 document.getElementById("globalModelType").addEventListener("change", async (e) => {
@@ -346,7 +339,7 @@ document.getElementById("globalModelType").addEventListener("change", async (e) 
   if (state.shocks.length > 0) await runSimulation();
 
   const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab;
-  if (activeTab === "tab-overview" || activeTab === "tab-data" || activeTab === "tab-structure") {
+  if (activeTab === "tab-structure" || activeTab === "tab-data") {
     switchTab("tab-linkage");
   }
 });
@@ -405,7 +398,7 @@ function renderStructureBarChart() {
 
 function renderBreakdown(data) {
   const mkTable = (title, items) => `
-    <h4 style="margin:8px 0 6px; font-size:0.86rem;">${title}</h4>
+    <h4 style="margin:8px 0 6px; font-size:0.84rem; color:#475569;">${title}</h4>
     <table class="data-table compact" style="margin-bottom:12px;">
       <thead><tr><th>항목</th><th class="num">금액(백만원)</th><th class="num">구성비(%)</th></tr></thead>
       <tbody>
@@ -538,7 +531,7 @@ function renderQuadrantChart(points) {
     : "";
 
   box.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:480px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:480px; background:#f8fafc; border:1px solid #e5e9f2; border-radius:8px;">
       <line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="#94a3b8" />
       <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H - PAD}" stroke="#94a3b8" />
       <line x1="${lineX}" y1="${PAD}" x2="${lineX}" y2="${H - PAD}" stroke="#cbd5e1" stroke-dasharray="4 3" />
@@ -555,7 +548,7 @@ function renderQuadrantChart(points) {
   `;
 }
 
-// TAB 4: 시뮬레이션
+// TAB 3: 시뮬레이션
 document.getElementById("simShockInput").addEventListener("input", (e) => {
   const v = Number(e.target.value);
   document.getElementById("simAmountPreview").textContent =
@@ -596,7 +589,7 @@ function resetSimulationView() {
 function renderShockList() {
   const tbody = document.querySelector("#shockListTable tbody");
   if (!state.shocks.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">충격 항목을 추가하거나 위 프리셋을 선택하세요.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>`;
     return;
   }
   tbody.innerHTML = state.shocks.map((sh, i) => `
@@ -734,7 +727,7 @@ async function runSimulation() {
   `).join("");
 }
 
-// TAB 5: 정합성 검증 및 드릴다운
+// TAB 4: 정합성 검증 및 드릴다운
 async function loadVerification() {
   const res = await callWorker("verify_all");
   document.querySelector("#verifyTable tbody").innerHTML = res.rows.map((r) => `
