@@ -1,4 +1,4 @@
-// Pyodide Web Worker: numpy와 openpyxl 로드
+// Pyodide Web Worker: numpy 및 openpyxl 로드
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
 
 let pyodide = null;
@@ -20,7 +20,7 @@ async function ensurePyodide() {
   }
 
   self.postMessage({ type: "status", message: "model.py 분석 모듈 초기화 중..." });
-  const resp = await fetch("./model.py?v=3");
+  const resp = await fetch("./model.py?v=" + Date.now(), { cache: "no-store" });
   if (!resp.ok) throw new Error("model.py를 불러올 수 없습니다.");
   const modelCode = await resp.text();
   pyodide.FS.writeFile("model.py", modelCode);
