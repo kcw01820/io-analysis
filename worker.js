@@ -9,8 +9,12 @@ async function ensurePyodide() {
   self.postMessage({ type: "status", message: "Pyodide(WebAssembly Python) 로딩 중..." });
   pyodide = await loadPyodide();
 
-  self.postMessage({ type: "status", message: "numpy 및 openpyxl 패키지 로딩 중..." });
-  await pyodide.loadPackage(["numpy", "openpyxl"]);
+  self.postMessage({ type: "status", message: "numpy 및 micropip 로딩 중..." });
+  await pyodide.loadPackage(["numpy", "micropip"]);
+
+  self.postMessage({ type: "status", message: "openpyxl(엑셀 패키지) 설치 중..." });
+  const micropip = pyodide.pyimport("micropip");
+  await micropip.install("openpyxl");
 
   self.postMessage({ type: "status", message: "model.py 분석 모듈 초기화 중..." });
   const resp = await fetch("./model.py");
