@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2023 한국 산업연관표 분석</title>
-  <link rel="stylesheet" href="./style.css?v=8" />
+  <title>산업연관표 분석 웹앱</title>
+  <link rel="stylesheet" href="./style.css?v=11" />
 </head>
 <body>
-  <!-- 상단 네비게이션 바 -->
   <header class="topbar">
     <div class="topbar-inner">
       <div class="topbar-brand">
         <span class="brand-mark">IO</span>
-        <span class="brand-title">2023 산업연관분석</span>
+        <span class="brand-title">산업연관표 분석 웹앱</span>
       </div>
       <div class="topbar-right">
         <span id="engineStatus" class="status-pill">대기 중</span>
@@ -25,13 +24,12 @@
     </div>
   </header>
 
-  <!-- 초기 시작 화면 (로딩 전) -->
   <section id="landingView" class="landing-wrap">
-    <div class="landing-box">
-      <span class="landing-tag">2023년 한국은행 산업연관표 (연장표)</span>
-      <h1 class="landing-title">산업연관분석 및<br />경제파급 시뮬레이터</h1>
+    <div class="landing-content">
+      <span class="landing-tag">2023년 한국은행 산업연관표 · 연장표</span>
+      <h1 class="landing-title">산업연관표 분석 웹앱</h1>
       <p class="landing-desc">
-        대·중·소·기본부문 투입산출표 기반 전후방 연쇄효과 및 충격 시뮬레이션
+        대·중·소·기본부문 투입산출표 기반 산업구조, 전후방 연쇄효과 및 경제파급 시뮬레이션
       </p>
 
       <div class="landing-actions">
@@ -40,14 +38,12 @@
       </div>
 
       <p id="heroProgressText" class="landing-status">
-        저장소의 기본 투입산출표(6개 Excel)를 불러와 분석을 시작합니다.
+        저장소 data/ 폴더의 투입산출표를 불러와 브라우저에서 바로 분석합니다.
       </p>
     </div>
   </section>
 
-  <!-- 메인 대시보드 (로딩 후) -->
   <main id="workspaceView" class="container hidden">
-    <!-- 탭 + 글로벌 필터 한 줄 바 -->
     <div class="workspace-bar">
       <nav class="tabs" aria-label="분석 메뉴">
         <button class="tab-btn active" data-tab="tab-structure">거시 · 산업 구조</button>
@@ -74,12 +70,12 @@
     <!-- TAB 1: 거시 및 산업 구조 -->
     <section id="tab-structure" class="tab-panel active">
       <div id="macroKpiGrid" class="kpi-grid kpi-3">
-        <div class="kpi-card"><div class="kpi-title">총공급 (국내산출+수입)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">국내 총산출액</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총수입 / 총수출</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">중간투입률 / 부가가치율</div><div class="kpi-val">-</div><div class="kpi-unit">%</div></div>
-        <div class="kpi-card"><div class="kpi-title">대외무역 비중</div><div class="kpi-val">-</div><div class="kpi-unit">(수출+수입)/총공급</div></div>
+        <div class="kpi-card"><div class="kpi-title">총공급 (국내산출+수입)</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">국내 총산출액</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">총 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">총수입 / 총수출</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">중간투입률 / 부가가치율</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">대외무역 비중</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
       </div>
 
       <div class="grid-2">
@@ -87,13 +83,13 @@
           <div class="card-head">
             <h2>상위 10개 산업</h2>
             <select id="structureChartMetric" aria-label="지표 선택">
-              <option value="output">총산출액 (백만원)</option>
-              <option value="va">부가가치 (백만원)</option>
+              <option value="output">총산출액</option>
+              <option value="va">부가가치</option>
               <option value="va_rate">부가가치율 (%)</option>
               <option value="int_input_rate">중간투입률 (%)</option>
-              <option value="export">수출액 (백만원)</option>
+              <option value="export">수출액</option>
               <option value="export_rate">수출률 (%)</option>
-              <option value="import">수입액 (백만원)</option>
+              <option value="import">수입액</option>
               <option value="import_rate">수입의존도 (%)</option>
             </select>
           </div>
@@ -101,14 +97,16 @@
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>최종수요 · 부가가치 구성</h2></div>
+          <div class="card-head">
+            <h2>최종수요 · 부가가치 구성 <span class="head-unit">(단위: 백만원)</span></h2>
+          </div>
           <div id="macroBreakdownBox"></div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <h2>산업별 구조표</h2>
+          <h2>산업별 구조표 <span class="head-unit">(단위: 백만원)</span></h2>
           <div class="toolbar-inline">
             <input id="structureFilterInput" type="text" placeholder="산업명 · 코드 검색" />
             <button id="btnExportStructureCsv" class="btn btn-outline">CSV 저장</button>
@@ -120,14 +118,14 @@
               <tr>
                 <th>코드</th>
                 <th>산업명</th>
-                <th class="num">총산출(백만원)</th>
+                <th class="num">총산출</th>
                 <th class="num">비중(%)</th>
-                <th class="num">부가가치(백만원)</th>
+                <th class="num">부가가치</th>
                 <th class="num">부가가치율(%)</th>
                 <th class="num">중간투입률(%)</th>
-                <th class="num">수출액(백만원)</th>
+                <th class="num">수출액</th>
                 <th class="num">수출률(%)</th>
-                <th class="num">수입액(백만원)</th>
+                <th class="num">수입액</th>
                 <th class="num">수입률(%)</th>
               </tr>
             </thead>
@@ -149,30 +147,30 @@
       </div>
 
       <div id="sectorKpiGrid" class="kpi-grid kpi-3">
-        <div class="kpi-card"><div class="kpi-title">총산출 / 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">생산유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">최종수요 1단위당</div></div>
-        <div class="kpi-card"><div class="kpi-title">부가가치유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">최종수요 1단위당</div></div>
-        <div class="kpi-card"><div class="kpi-title">간접 수입유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">국내생산 1단위당</div></div>
-        <div class="kpi-card"><div class="kpi-title">영향력계수 (후방연쇄)</div><div class="kpi-val">-</div><div class="kpi-unit">평균=1.0</div></div>
-        <div class="kpi-card"><div class="kpi-title">감응도계수 (전방연쇄)</div><div class="kpi-val">-</div><div class="kpi-unit">평균=1.0</div></div>
+        <div class="kpi-card"><div class="kpi-title">총산출 / 부가가치</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">생산유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">부가가치유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">간접 수입유발계수</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">영향력계수 (후방연쇄)</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">감응도계수 (전방연쇄)</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <div class="card-head"><h2>후방 투입구조 Top 10</h2></div>
+          <div class="card-head"><h2>후방 투입구조 Top 10 <span class="head-unit">(단위: 백만원)</span></h2></div>
           <div class="table-scroll">
             <table id="upstreamTable" class="data-table compact">
-              <thead><tr><th>코드</th><th>공급 산업</th><th class="num">투입액(백만원)</th><th class="num">투입계수</th><th class="num">비중(%)</th></tr></thead>
+              <thead><tr><th>코드</th><th>공급 산업</th><th class="num">투입액</th><th class="num">투입계수</th><th class="num">비중(%)</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>전방 배분구조 Top 10</h2></div>
+          <div class="card-head"><h2>전방 배분구조 Top 10 <span class="head-unit">(단위: 백만원)</span></h2></div>
           <div class="table-scroll">
             <table id="downstreamTable" class="data-table compact">
-              <thead><tr><th>코드</th><th>수요 산업</th><th class="num">배분액(백만원)</th><th class="num">배분계수</th><th class="num">비중(%)</th></tr></thead>
+              <thead><tr><th>코드</th><th>수요 산업</th><th class="num">배분액</th><th class="num">배분계수</th><th class="num">비중(%)</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -191,7 +189,10 @@
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>전후방 연쇄효과 포지셔닝</h2></div>
+          <div class="card-head">
+            <h2>전후방 연쇄효과 포지셔닝</h2>
+            <span class="head-unit">마우스 올리면 산업 표시 · 클릭 시 이동</span>
+          </div>
           <div id="quadrantChartBox" class="quadrant-wrap"></div>
         </div>
       </div>
@@ -201,7 +202,7 @@
     <section id="tab-simulation" class="tab-panel">
       <div class="card">
         <div class="card-head">
-          <h2>최종수요 충격 시나리오 (단위: 백만원)</h2>
+          <h2>최종수요 충격 시나리오 <span class="head-unit">(단위: 백만원)</span></h2>
         </div>
 
         <div class="preset-group">
@@ -226,21 +227,21 @@
         <div class="table-scroll">
           <table id="shockListTable" class="data-table compact">
             <thead>
-              <tr><th>코드</th><th>충격 산업</th><th class="num">충격액(백만원)</th><th class="num">환산</th><th>관리</th></tr>
+              <tr><th>코드</th><th>충격 산업</th><th class="num">충격액</th><th>관리</th></tr>
             </thead>
             <tbody>
-              <tr><td colspan="5" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>
+              <tr><td colspan="4" class="empty-cell">프리셋을 누르거나 직접 충격을 추가하세요.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <div id="simKpiGrid" class="kpi-grid kpi-5">
-        <div class="kpi-card"><div class="kpi-title">최종수요 충격 (ΔY)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">총 생산유발 (ΔX)</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">부가가치유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">임금유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
-        <div class="kpi-card"><div class="kpi-title">중간재 수입유발</div><div class="kpi-val">-</div><div class="kpi-unit">백만원</div></div>
+        <div class="kpi-card"><div class="kpi-title">최종수요 충격 (ΔY)</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">총 생산유발 (ΔX)</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">부가가치유발</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">임금유발</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
+        <div class="kpi-card"><div class="kpi-title">중간재 수입유발</div><div class="kpi-val">-</div><div class="kpi-unit">-</div></div>
       </div>
 
       <div class="card">
@@ -252,7 +253,7 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>상세 파급효과 (상위 120개)</h2></div>
+        <div class="card-head"><h2>상세 파급효과 <span class="head-unit">(상위 120개 · 단위: 백만원)</span></h2></div>
         <div class="table-scroll tall">
           <table id="simResultTable" class="data-table">
             <thead>
@@ -277,17 +278,17 @@
     <!-- TAB 4: 정합성 검증 및 드릴다운 -->
     <section id="tab-verify" class="tab-panel">
       <div class="card">
-        <div class="card-head"><h2>투입산출 균형 검증</h2></div>
+        <div class="card-head"><h2>투입산출 균형 검증 <span class="head-unit">(단위: 백만원)</span></h2></div>
         <div class="table-scroll">
           <table id="verifyTable" class="data-table">
             <thead>
               <tr>
                 <th>분류</th>
                 <th class="num">부문 수</th>
-                <th class="num">총산출(백만원)</th>
-                <th class="num">총투입(백만원)</th>
-                <th class="num">총공급/수요(백만원)</th>
-                <th class="num">총부가가치(백만원)</th>
+                <th class="num">총산출</th>
+                <th class="num">총투입</th>
+                <th class="num">총공급/수요</th>
+                <th class="num">총부가가치</th>
                 <th class="num">최대 오차</th>
                 <th>결과</th>
               </tr>
@@ -298,7 +299,7 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>다계층 드릴다운 (대분류 → 세부 분류)</h2></div>
+        <div class="card-head"><h2>다계층 드릴다운 (대분류 → 세부 분류) <span class="head-unit">(단위: 백만원)</span></h2></div>
         <div class="toolbar">
           <select id="drillMajorSelect" class="wide-select" aria-label="대분류 선택"></select>
           <select id="drillTargetLevel" aria-label="하위 분류 선택">
@@ -314,7 +315,7 @@
               <tr>
                 <th>코드</th>
                 <th>하위 산업명</th>
-                <th class="num">총산출(백만원)</th>
+                <th class="num">총산출</th>
                 <th class="num">비중(%)</th>
                 <th class="num">부가가치율(%)</th>
                 <th class="num">수출률(%)</th>
@@ -369,6 +370,8 @@
     </section>
   </main>
 
-  <script src="./app.js?v=8"></script>
+  <div id="chartTooltip" class="chart-tooltip hidden"></div>
+
+  <script src="./app.js?v=11"></script>
 </body>
 </html>
