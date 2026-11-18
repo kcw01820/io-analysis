@@ -8,7 +8,7 @@ const DEFAULT_DATA_FILES = [
   "2023년 산업연관표(연장표).xlsx"
 ];
 
-const worker = new Worker("./worker.js?v=5");
+const worker = new Worker("./worker.js?v=6");
 let msgCounter = 0;
 const pending = new Map();
 
@@ -99,8 +99,9 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
 
     let loadedCount = 0;
     const failed = [];
-    for (const fname of DEFAULT_DATA_FILES) {
-      setProgress(`Excel 불러오는 중 (${loadedCount + 1}/${DEFAULT_DATA_FILES.length}): ${fname}`, "busy");
+    for (let i = 0; i < DEFAULT_DATA_FILES.length; i++) {
+      const fname = DEFAULT_DATA_FILES[i];
+      setProgress(`Excel 불러오는 중 (${i + 1}/${DEFAULT_DATA_FILES.length}): ${fname}`, "busy");
       const url = "./data/" + encodeURIComponent(fname);
       try {
         const resp = await fetch(url);
@@ -160,13 +161,11 @@ async function refreshAllAfterLoad() {
   state.files = summary.files;
   state.levels = summary.levels;
 
-  // 로딩된 파일 칩 표시
   const chips = document.getElementById("loadedFilesChips");
   chips.innerHTML = Object.entries(state.files)
     .map(([fname, info]) => `<span class="chip">${escapeHtml(fname)} (${info.sheets.length}개 시트)</span>`)
     .join("");
 
-  // 시트 탐색기 파일 목록
   const fileSel = document.getElementById("sheetFileSelect");
   fileSel.innerHTML = Object.keys(state.files)
     .map((fn) => `<option value="${escapeHtml(fn)}">${escapeHtml(fn)}</option>`)
@@ -174,10 +173,8 @@ async function refreshAllAfterLoad() {
   updateSheetDropdown();
   await loadSheetPreview();
 
-  // 상품분류 검색
   await runClassSearch();
 
-  // 분석 분류 드롭다운
   const lvlSel = document.getElementById("globalLevelSelect");
   if (state.levels.length > 0) {
     lvlSel.disabled = false;
@@ -209,6 +206,9 @@ document.getElementById("sheetFileSelect").addEventListener("change", () => {
 });
 document.getElementById("sheetNameSelect").addEventListener("change", loadSheetPreview);
 document.getElementById("btnSearchSheet").addEventListener("click", loadSheetPreview);
+document.getElementById("sheetSearchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loadSheetPreview();
+});
 
 async function loadSheetPreview() {
   const fn = document.getElementById("sheetFileSelect").value;
@@ -266,10 +266,14 @@ window.jumpToSector = async function (targetLevel, sectorCode) {
     alert(`${targetLevel} 투입산출표가 먼저 로딩되어야 합니다.`);
     return;
   }
+  document.getElementById("sectorFilterInput").value = "";
   state.currentLevel = targetLevel;
   document.getElementById("globalLevelSelect").value = targetLevel;
-  await loadLevelData();
+  state.shocks = [];
+  renderShockList();
+  resetSimulationView();
 
+  await loadLevelData();
   document.querySelector('[data-tab="tab-linkage"]').click();
   document.getElementById("sectorSelect").value = sectorCode;
   await loadSectorDetail();
@@ -278,8 +282,10 @@ window.jumpToSector = async function (targetLevel, sectorCode) {
 // 분류·모형 변경 이벤트
 document.getElementById("globalLevelSelect").addEventListener("change", async (e) => {
   state.currentLevel = e.target.value;
+  document.getElementById("sectorFilterInput").value = "";
   state.shocks = [];
   renderShockList();
+  resetSimulationView();
   await loadLevelData();
 });
 
@@ -344,7 +350,7 @@ function renderStructureBarChart() {
 function renderBreakdown(data) {
   const mkTable = (title, items) => `
     <h4 style="margin:8px 0 6px; font-size:0.86rem;">${title}</h4>
-    <table class="data-table" style="margin-bottom:12px;">
+    <table class="data-table compact" style="margin-bottom:12px;">
       <thead><tr><th>항목</th><th class="num">금액(백만원)</th><th class="num">구성비(%)</th></tr></thead>
       <tbody>
         ${items.map((x) => `<tr><td>${escapeHtml(x.name)}</td><td class="num">${fmtNum(x.value)}</td><td class="num">${x.share}%</td></tr>`).join("")}
@@ -380,7 +386,6 @@ function renderStructureTable(rows) {
   `).join("");
 }
 
-// 산업 선택 드롭다운 채우기
 function populateSectorSelectors() {
   const secs = state.sectorsByLevel[state.currentLevel] || [];
   const filterQ = document.getElementById("sectorFilterInput").value.trim().toLowerCase();
@@ -463,7 +468,7 @@ function renderQuadrantChart(points) {
   const dots = points.map((p) => {
     const cx = sx(p.forward);
     const cy = sy(p.backward);
-    const fill = p.selected ? "#d32f2f" : "#1f6feb";
+    const fill = p.selected ? "#dc2626" : "#1d4ed8";
     const r = p.selected ? 6 : 3.2;
     const op = p.selected ? 1 : 0.55;
     return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" opacity="${op}">
@@ -473,21 +478,21 @@ function renderQuadrantChart(points) {
 
   const sel = points.find((p) => p.selected);
   const labelSvg = sel
-    ? `<text x="${Math.min(W - 110, sx(sel.forward) + 8)}" y="${Math.max(16, sy(sel.backward) - 8)}" font-size="11" font-weight="700" fill="#b71c1c">${escapeHtml(sel.code)} ${escapeHtml(sel.name.slice(0, 10))}</text>`
+    ? `<text x="${Math.min(W - 110, sx(sel.forward) + 8)}" y="${Math.max(16, sy(sel.backward) - 8)}" font-size="11" font-weight="700" fill="#b91c1c">${escapeHtml(sel.code)} ${escapeHtml(sel.name.slice(0, 10))}</text>`
     : "";
 
   box.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:480px; background:#fbfcfe; border:1px solid #e3e9f2; border-radius:6px;">
-      <line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="#8898aa" />
-      <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H - PAD}" stroke="#8898aa" />
-      <line x1="${lineX}" y1="${PAD}" x2="${lineX}" y2="${H - PAD}" stroke="#9aa8b8" stroke-dasharray="4 3" />
-      <line x1="${PAD}" y1="${lineY}" x2="${W - PAD}" y2="${lineY}" stroke="#9aa8b8" stroke-dasharray="4 3" />
-      <text x="${W - PAD - 75}" y="${PAD + 14}" font-size="10" fill="#5b6778">핵심기간산업형</text>
-      <text x="${PAD + 6}" y="${PAD + 14}" font-size="10" fill="#5b6778">최종수요제조형</text>
-      <text x="${W - PAD - 68}" y="${H - PAD - 8}" font-size="10" fill="#5b6778">중간재기초형</text>
-      <text x="${PAD + 6}" y="${H - PAD - 8}" font-size="10" fill="#5b6778">독립산업형</text>
-      <text x="${W / 2 - 42}" y="${H - 10}" font-size="11" fill="#1c2430">감응도계수 (1.0 기준)</text>
-      <text x="12" y="${H / 2}" font-size="11" fill="#1c2430" transform="rotate(-90 12 ${H / 2})">영향력계수</text>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:480px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+      <line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="#94a3b8" />
+      <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H - PAD}" stroke="#94a3b8" />
+      <line x1="${lineX}" y1="${PAD}" x2="${lineX}" y2="${H - PAD}" stroke="#cbd5e1" stroke-dasharray="4 3" />
+      <line x1="${PAD}" y1="${lineY}" x2="${W - PAD}" y2="${lineY}" stroke="#cbd5e1" stroke-dasharray="4 3" />
+      <text x="${W - PAD - 78}" y="${PAD + 14}" font-size="10" fill="#64748b">핵심기간산업형</text>
+      <text x="${PAD + 6}" y="${PAD + 14}" font-size="10" fill="#64748b">최종수요제조형</text>
+      <text x="${W - PAD - 70}" y="${H - PAD - 8}" font-size="10" fill="#64748b">중간재기초형</text>
+      <text x="${PAD + 6}" y="${H - PAD - 8}" font-size="10" fill="#64748b">독립산업형</text>
+      <text x="${W / 2 - 42}" y="${H - 10}" font-size="11" fill="#334155">감응도계수 (1.0 기준)</text>
+      <text x="12" y="${H / 2}" font-size="11" fill="#334155" transform="rotate(-90 12 ${H / 2})">영향력계수</text>
       ${dots}
       ${labelSvg}
     </svg>
@@ -495,10 +500,20 @@ function renderQuadrantChart(points) {
 }
 
 // TAB 4: 시뮬레이션
+document.getElementById("simShockInput").addEventListener("input", (e) => {
+  const v = Number(e.target.value);
+  document.getElementById("simAmountPreview").textContent =
+    Number.isNaN(v) ? "(= -)" : `(= ${fmtJo(v)})`;
+});
+
 document.getElementById("btnAddShock").addEventListener("click", () => {
   const code = document.getElementById("simSectorSelect").value;
-  const amount = Number(document.getElementById("simShockInput").value);
-  if (!code || Number.isNaN(amount)) return;
+  const raw = document.getElementById("simShockInput").value.trim();
+  const amount = Number(raw);
+  if (!code || raw === "" || Number.isNaN(amount) || amount === 0) {
+    alert("0이 아닌 충격 금액(백만원)을 입력하세요.");
+    return;
+  }
   const sec = (state.sectorsByLevel[state.currentLevel] || []).find((s) => s.code === code);
   if (!sec) return;
   state.shocks.push({ code: sec.code, name: sec.name, amount });
@@ -508,7 +523,19 @@ document.getElementById("btnAddShock").addEventListener("click", () => {
 document.getElementById("btnClearShock").addEventListener("click", () => {
   state.shocks = [];
   renderShockList();
+  resetSimulationView();
 });
+
+function resetSimulationView() {
+  state.simResult = null;
+  document.querySelectorAll("#simKpiGrid .kpi-card").forEach((c) => {
+    c.querySelector(".kpi-val").textContent = "-";
+    c.querySelector(".kpi-unit").textContent = "백만원";
+  });
+  document.getElementById("simBarChart").innerHTML = "";
+  document.querySelector("#simResultTable tbody").innerHTML =
+    `<tr><td colspan="9" class="empty-cell">시뮬레이션을 실행하면 결과가 표시됩니다.</td></tr>`;
+}
 
 function renderShockList() {
   const tbody = document.querySelector("#shockListTable tbody");
@@ -522,10 +549,20 @@ function renderShockList() {
       <td>${escapeHtml(sh.name)}</td>
       <td class="num">${fmtNum(sh.amount)}</td>
       <td class="num">${fmtJo(sh.amount)}</td>
-      <td><button class="btn btn-chip" onclick="removeShock(${i})">삭제</button></td>
+      <td>
+        <button class="btn btn-chip" onclick="flipShock(${i})">± 반전</button>
+        <button class="btn btn-chip neg" onclick="removeShock(${i})">삭제</button>
+      </td>
     </tr>
   `).join("");
 }
+
+window.flipShock = (idx) => {
+  if (!state.shocks[idx]) return;
+  state.shocks[idx].amount = -state.shocks[idx].amount;
+  renderShockList();
+  runSimulation();
+};
 
 window.removeShock = (idx) => {
   state.shocks.splice(idx, 1);
@@ -536,29 +573,50 @@ window.removeShock = (idx) => {
 document.querySelectorAll("[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => {
     const secs = state.sectorsByLevel[state.currentLevel] || [];
-    if (!secs.length) { alert("먼저 Excel 자료를 불러오세요."); return; }
+    if (!secs.length) {
+      alert("먼저 Excel 자료를 불러오세요.");
+      return;
+    }
 
-    const findSec = (keywords) => secs.find((s) => keywords.some((kw) => s.code === kw || s.name.includes(kw)));
+    const findSec = (codes, nameKeywords = []) => {
+      for (const c of codes) {
+        const hit = secs.find((s) => s.code === c);
+        if (hit) return hit;
+      }
+      for (const kw of nameKeywords) {
+        const hit = secs.find((s) => s.name.includes(kw));
+        if (hit) return hit;
+      }
+      return null;
+    };
+
     const p = btn.dataset.preset;
     state.shocks = [];
 
-    if (p === "semi") {
-      const s = findSec(["3102", "310", "31", "C09"]);
-      if (s) state.shocks.push({ code: s.code, name: s.name, amount: -10_000_000 });
+    if (p === "semi_plus" || p === "semi_minus") {
+      const amt = p === "semi_plus" ? 10_000_000 : -10_000_000;
+      const s = findSec(["3102", "310", "31", "C09"], ["반도체", "전자"]);
+      if (s) state.shocks.push({ code: s.code, name: s.name, amount: amt });
     } else if (p === "ev") {
-      const s1 = findSec(["4012", "401", "40", "C12"]);
-      const s2 = findSec(["3730", "373", "37", "C10"]);
+      const s1 = findSec(["4012", "401", "40", "C12"], ["자동차", "운송장비"]);
+      const s2 = findSec(["3730", "373", "37", "C10"], ["전지", "전기장비"]);
       if (s1) state.shocks.push({ code: s1.code, name: s1.name, amount: 3_000_000 });
-      if (s2) state.shocks.push({ code: s2.code, name: s2.name, amount: 2_000_000 });
+      if (s2 && (!s1 || s2.code !== s1.code)) state.shocks.push({ code: s2.code, name: s2.name, amount: 2_000_000 });
     } else if (p === "soc") {
-      const s = findSec(["5111", "51", "F"]);
+      const s = findSec(["5111", "51", "F"], ["건설", "토목"]);
       if (s) state.shocks.push({ code: s.code, name: s.name, amount: 3_000_000 });
     } else if (p === "service") {
-      const s1 = findSec(["5811", "581", "58", "I"]);
-      const s2 = findSec(["5500", "55", "H"]);
+      const s1 = findSec(["5811", "581", "58", "I"], ["음식", "숙박"]);
+      const s2 = findSec(["5500", "55", "H"], ["운송", "운수"]);
       if (s1) state.shocks.push({ code: s1.code, name: s1.name, amount: 1_200_000 });
-      if (s2) state.shocks.push({ code: s2.code, name: s2.name, amount: 800_000 });
+      if (s2 && (!s1 || s2.code !== s1.code)) state.shocks.push({ code: s2.code, name: s2.name, amount: 800_000 });
     }
+
+    if (!state.shocks.length) {
+      alert("현재 분류표에서 해당 프리셋 산업을 찾지 못했습니다. 아래 드롭다운에서 직접 산업을 선택해 주세요.");
+      return;
+    }
+
     renderShockList();
     runSimulation();
   });
