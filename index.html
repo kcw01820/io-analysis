@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>산업연관표 분석실</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">IO</div>
+    <div><div class="eyebrow">INDUSTRIAL LINKAGE ANALYSIS</div><h1>산업연관표 분석실</h1></div>
+    <span class="top-tag">산업연관분석 웹앱</span>
+  </header>
+
+  <main class="container">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">DATA WORKSPACE</p>
+        <h2>산업 간 연결을<br><em>데이터로 읽다.</em></h2>
+        <p class="intro-copy">엑셀 산업연관표를 불러와 시트와 산업을 탐색하고, 계수행렬을 이용해 생산유발효과를 분석할 수 있습니다.</p>
+      </div>
+      <div class="intro-stat"><span class="stat-dot"></span><span id="loadStatus">자료를 불러와 주세요</span></div>
+    </section>
+
+    <section class="panel import-panel">
+      <div class="section-heading"><div><p class="eyebrow">01 / DATA</p><h3>자료 불러오기</h3></div><span class="step">EXCEL</span></div>
+      <div class="import-row">
+        <label class="file-drop" for="fileInput"><span class="upload-icon">↑</span><span><b>엑셀 파일 선택</b><small>.xlsx 또는 .xls 파일을 선택하세요.</small></span></label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm">
+        <button id="loadDefault" class="button secondary">기본 자료 불러오기</button>
+      </div>
+      <p class="hint">기본 자료는 <code>data/io-2023.xlsx</code> 경로에서 불러옵니다. 파일을 직접 선택해도 서버에 업로드되지는 않습니다.</p>
+      <div id="fileMessage" class="message">아직 불러온 자료가 없습니다.</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">02 / EXPLORE</p><h3>시트 및 산업 탐색</h3></div><span class="step">BROWSE</span></div>
+      <div class="toolbar">
+        <label>시트 선택<select id="sheetSelect" disabled><option>엑셀 파일을 먼저 불러오세요</option></select></label>
+        <label class="search-label">산업·항목 검색<input id="searchInput" type="search" placeholder="예: 반도체, 화학제품..." disabled></label>
+      </div>
+      <div class="table-meta" id="sheetMeta">시트 정보가 여기에 표시됩니다.</div>
+      <div class="table-wrap"><table id="dataTable"><tbody><tr><td class="empty">엑셀 파일을 불러오면 표가 표시됩니다.</td></tr></tbody></table></div>
+      <p class="hint">표는 선택한 시트의 앞부분을 미리 보여줍니다. 검색어와 일치하는 행을 우선 표시합니다.</p>
+    </section>
+
+    <section class="panel analysis-panel">
+      <div class="section-heading"><div><p class="eyebrow">03 / ANALYSIS</p><h3>생산유발효과 분석</h3></div><span class="step">LEONTIEF</span></div>
+      <p class="analysis-desc">산업별 투입계수행렬 <b>A</b>를 선택하면 레온티에프 역행렬 <b>(I − A)<sup>−1</sup></b>을 계산하고, 최종수요 1단위 증가에 따른 산업별 생산유발계수를 확인합니다.</p>
+      <div class="analysis-controls">
+        <label>계수행렬 시트<select id="matrixSheet" disabled><option>엑셀 파일을 먼저 불러오세요</option></select></label>
+        <label>행렬 시작 행(1부터)<input id="startRow" type="number" min="1" value="2"></label>
+        <label>행렬 시작 열(1부터)<input id="startCol" type="number" min="1" value="2"></label>
+        <label>산업 개수<input id="matrixSize" type="number" min="1" value="5"></label>
+      </div>
+      <div class="button-row"><button id="analyzeBtn" class="button primary" disabled>생산유발계수 계산</button><span class="hint">선택한 범위가 정방행렬이며 A의 원소가 투입계수(0~1 수준)여야 합니다.</span></div>
+      <div id="analysisMessage" class="message">분석할 계수행렬을 선택해 주세요.</div>
+      <div id="analysisResults" class="results hidden"></div>
+    </section>
+
+    <footer><span>INDUSTRIAL LINKAGE ANALYSIS</span><span>GitHub Pages에서 실행되는 정적 웹앱</span></footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
