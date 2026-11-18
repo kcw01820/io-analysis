@@ -8,7 +8,7 @@ const DEFAULT_DATA_FILES = [
   "2023년 산업연관표(연장표).xlsx"
 ];
 
-const worker = new Worker("./worker.js");
+const worker = new Worker("./worker.js?v=3");
 let msgCounter = 0;
 const pending = new Map();
 
