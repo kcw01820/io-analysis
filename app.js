@@ -118,7 +118,7 @@ document.getElementById("btnLoadRepoData").addEventListener("click", async () =>
 
     if (loadedCount === 0) {
       setProgress(
-        "data/ 폴더에서 파일을 가져오지 못했습니다. (로컬 file:// 환경에서는 브라우저 보안상 fetch가 차단되므로 로컬 서버를 실행하거나 오른쪽 [로컬 Excel 파일 선택]을 이용하세요.)",
+        `불러오기 실패 원인: ${failed.join(" | ")}`,
         "idle"
       );
     } else {
